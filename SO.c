@@ -72,7 +72,7 @@ void *play_game(void *arg) {
             add_to_pile(&player->cards[i]);
             printf("Player %d plays: ", player->player_id);
             print_card(&player->cards[i]);
-            printf(" Left: %d", --player->cards_out);
+            printf(" Left: %d \n", --player->cards_out);
             printf("\n");
             player->cards[i].badge = -1;  // Mark card as played
             player->cards[i].suit = -1;
