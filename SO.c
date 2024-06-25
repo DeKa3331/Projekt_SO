@@ -31,6 +31,12 @@ void swap(Card*, Card*);
 
 pthread_mutex_t lock;
 int current_value = 0;
+int cards_played = 0;
+Card card_pile[TOTAL_CARDS];
+
+void add_to_pile(Card *card) {
+    card_pile[cards_played++] = *card;
+}
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
@@ -168,7 +174,6 @@ int main() {
     fill_deck(deck);
     shuffle_deck(deck);
     print_deck(deck, TOTAL_CARDS);
-
 
     pthread_t threads[num_players];
     Player players[num_players];
