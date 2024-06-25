@@ -47,7 +47,7 @@ void shuffle_deck(int *deck, int size) {
     }
 }
 
-int main() {
+int main() { //test
     int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
