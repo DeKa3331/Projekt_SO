@@ -153,6 +153,7 @@ void print_card(Card *card) {
 }
 
 int main() {
+    srand(time(NULL));
     int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
@@ -167,7 +168,6 @@ int main() {
     shuffle_deck(deck);
     print_deck(deck, TOTAL_CARDS);
 
-    srand(time(NULL));
 
     pthread_t threads[num_players];
     Player players[num_players];
