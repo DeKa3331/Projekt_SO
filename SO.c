@@ -4,15 +4,14 @@
 #include <time.h>
 
 #define TOTAL_CARDS 24
-#define NUM_CARDS_PER_PLAYER 6
 
-enum badge {Hearts, Spades, Diamonds, Clubs}; // Kier, Pik, Karo, Trefl
+enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
 
-enum suit {Nine, Ten, Jack, Queen, King, Ace};
+enum suit {NINE = 9, TEN = 10, JACK = 11, QUEEN = 12, KING = 13, ACE = 14};
 
 typedef struct {
     int player_id;
-    int cards[NUM_CARDS_PER_PLAYER];
+    Card cards[TOTAL_CARDS];
     int current_card;
 } Player;
 
@@ -56,7 +55,17 @@ void shuffle_deck(int *deck, int size) {
     }
 }
 
-int main() { //test
+void fill_deck(Card *deck, const int *num_players) {
+    int index = 0;
+    for(int suit=NINE; suit<=ACE; suit++) {
+        for(int badge=HEART; badge<=CLUB; badge++) {
+            deck[index].badge = badge;
+            deck[index++].suit = suit;
+        }
+    }
+}
+
+int main() {
     int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
@@ -66,14 +75,8 @@ int main() { //test
         return 1;
     }
 
-    int deck[TOTAL_CARDS];
-    int index = 0;
-    // 9, 10, J, Q, K, A are represented as 9, 10, 11, 12, 13, 14
-    for (int i = 9; i <= 14; i++) {
-        for (int j = 0; j < 4; j++) {
-            deck[index++] = i;
-        }
-    }
+    Card deck[TOTAL_CARDS];
+    fill_deck(deck, &num_players);
 
     srand(time(NULL));
     shuffle_deck(deck, TOTAL_CARDS);
