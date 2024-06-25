@@ -32,15 +32,21 @@ void print_card(Card*);
 void swap(Card*, Card*);
 void print_player_deck(Player* player);
 int find_card(Card*, Card*, int);
+void sort_by_suit(Card*, int);
 
 pthread_mutex_t lock;
+
 int is_game_done = 0;
 int winner = -1;
+
 int cards_played = 0;
 Card card_pile[TOTAL_CARDS];
 
-void add_to_pile(Card *card) {
-    card_pile[cards_played++] = *card;
+void add_to_pile(Player *player, int index) {
+    card_pile[cards_played++] = player->cards[index];
+    player->cards[index].suit = -1;
+    player->cards[index].badge = -1;
+    player->cards_out--;
 }
 
 void remove_from_pile(Player *player, int amount) {
@@ -66,8 +72,97 @@ int find_smallest_card(Player *player) {
     return min_index;
 }
 
+void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amount) {
+    sort_by_suit(deck, card_amount);
+    
+    *copy_amount = 0;
+
+    int counter = 0;
+    Card copies_tmp = {-1, -1};
+    for(int i=0; i<card_amount; i++) {
+        if(deck[i].suit == -1) continue;
+
+        if(deck[i].suit != copies_tmp.suit) {
+            if(counter > *copy_amount) {
+                *copy_amount = counter;
+                *copies = copies_tmp;
+            }
+            copies_tmp = deck[i];
+            counter = 1;
+        } else {
+            counter++;
+        }
+    }
+}
+
+void sort_by_suit(Card deck[], int card_amount) {
+    for(int i=0; i<card_amount; i++) {
+        for(int j=0; j<i; j++) {
+            if(deck[j].suit > deck[j+1].suit) swap(&deck[j], &deck[j+1]);
+        }
+    }
+}
+
+int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy top -> bottom
+    int index;
+
+    // Looking for START_CARD (once)
+    Card to_find = START_CARD;
+    index = find_card(&to_find, player->cards, TOTAL_CARDS);
+    if(cards_played == 0 && index != -1) {
+        printf("Initialization!\n");
+        printf("Player %d plays: ", player->player_id);
+        print_card(&player->cards[index]);
+        add_to_pile(player, index);
+        printf(" Left: %d \n", player->cards_out);
+        printf("\n");
+        return 1;
+    } else {
+        player->skipped = 1;
+    }
+
+    // Looking for 3 or more of the same suit
+    int card_amount;
+    Card card_multiplied;
+    have_same_cards(player->cards, TOTAL_CARDS, &card_multiplied, &card_amount);
+    if(cards_played > 0 && card_amount >= 3) {
+        printf("Three or more!\n");
+        printf("Player %d plays: ", player->player_id);
+        index = find_card(&card_multiplied, player->cards, TOTAL_CARDS);
+        
+        for(int i=0; i < card_amount; i++) {
+            print_card(&player->cards[index+i]);
+            printf(" ");
+            add_to_pile(player, index+i);
+        }
+        printf(" Left: %d \n", player->cards_out);
+        print_player_deck(player);
+        printf("\n");
+        return 1;
+    }
+
+    // Looking for smallest card to play
+    index = find_smallest_card(player);
+    if(cards_played > 0 && index != -1) {
+        printf("Small card!\n");
+        printf("Player %d plays: ", player->player_id);
+        print_card(&player->cards[index]);
+        add_to_pile(player, index);
+        printf(" Left: %d \n", player->cards_out);
+        print_player_deck(player);
+        printf("\n");
+        return 1;
+    }
+
+    return 0;
+}
+
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
+
+    int is_card_played = 0;
+    
+    is_card_played = card_playing_logic(player);
 
     pthread_mutex_lock(&lock);
     if (player->skipped) {
@@ -76,32 +171,11 @@ void *play_game(void *arg) {
         return NULL;
     }
 
-    int is_card_played = 0;
-    int min_index = -1;
-
-    Card to_find = START_CARD;
-    if(cards_played == 0) min_index = find_card(&to_find, player->cards, TOTAL_CARDS);
-    min_index = find_smallest_card(player);
-
-    if (min_index != -1) {
-        is_card_played = 1;
-        add_to_pile(&player->cards[min_index]);
-        printf("Player %d plays: ", player->player_id);
-        print_card(&player->cards[min_index]);
-        printf(" Left: %d \n", --player->cards_out);
-        player->cards[min_index].badge = -1;  // Mark card as played
-        player->cards[min_index].suit = -1;
-
-        // rest cards
-        printf("Player %d remaining cards: ", player->player_id);
-        print_player_deck(player);
-        printf("\n");
-    }
-
     if (!is_card_played) {
         remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
         printf("Player %d cannot play any card. Drawing 3\n", player->player_id);
-        printf("cards left: %d\n",player->player_id);
+        printf("Cards left: %d\n",player->cards_out);
+        sort_by_suit(player->cards, TOTAL_CARDS);
         print_player_deck(player);
         printf("\n");
         if (cards_played == 0) {
@@ -241,7 +315,7 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 }
 
 int main() {
-    srand(time(NULL));
+    srand(0);
     int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
