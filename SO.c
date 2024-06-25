@@ -6,11 +6,20 @@
 #define TOTAL_CARDS 24
 #define NUM_CARDS_PER_PLAYER 6
 
+enum badge {Hearts, Spades, Diamonds, Clubs}; // Kier, Pik, Karo, Trefl
+
+enum suit {Nine, Ten, Jack, Queen, King, Ace};
+
 typedef struct {
     int player_id;
     int cards[NUM_CARDS_PER_PLAYER];
     int current_card;
 } Player;
+
+typedef struct {
+    int suit;
+    int badge;
+} Card;
 
 pthread_mutex_t lock;
 int current_value = 0;
