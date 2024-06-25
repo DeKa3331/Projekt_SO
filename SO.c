@@ -38,6 +38,16 @@ void add_to_pile(Card *card) {
     card_pile[cards_played++] = *card;
 }
 
+void remove_from_pile(Player *player, int amount) {
+    for(int i=0; i<amount; i++) {
+        for(int j=0; j<TOTAL_CARDS; j++) {
+            if(!(player->cards[j].badge == -1 && player->cards[j].suit == -1)) continue;
+            player->cards[j] = card_pile[cards_played--];
+            player->cards_out++;
+        }
+    }
+}
+
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
     Card card_played = {-1, -1};
