@@ -84,13 +84,13 @@ void *play_game(void *arg) {
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[min_index]);
         printf(" Left: %d \n", --player->cards_out);
-       // printf("\n");
         player->cards[min_index].badge = -1;  // Mark card as played
         player->cards[min_index].suit = -1;
 
         // rest cards
         printf("Player %d remaining cards: ", player->player_id);
         print_player_deck(player);
+        printf("\n");
     }
 
     if (!is_card_played) {
@@ -98,6 +98,7 @@ void *play_game(void *arg) {
         printf("Player %d cannot play any card. Drawing 3\n", player->player_id);
         printf("cards left: %d\n",player->player_id);
         print_player_deck(player);
+        printf("\n");
         if (cards_played == 0) {
             player->skipped = 1;
         }
@@ -120,9 +121,11 @@ void swap(Card *c1, Card *c2) {
 }
 
 void shuffle_deck(Card *deck) {
-    for(int i = 0; i < TOTAL_CARDS; i++) {
-        int index = rand() % TOTAL_CARDS;
-        swap(&deck[i], &deck[index]);
+    for(int j=0; j<7; j++) {
+        for(int i = 0; i < TOTAL_CARDS; i++) {
+            int index = rand() % TOTAL_CARDS;
+            swap(&deck[i], &deck[index]);
+        }
     }
 }
 
@@ -218,6 +221,16 @@ void print_player_deck(Player *player) {
     printf("\n");
 }
 
+int find_first_player(Player *players, Card *card_to_find, int *num_players) {
+    for(int i=0; i < *num_players; i++) {
+        for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
+            if (players[i].cards[j].suit == card_to_find->suit && players[i].cards[j].badge == card_to_find->badge) {
+                return i;
+            }
+        }
+    }
+}
+
 int main() {
     srand(time(NULL));
     int num_players;
@@ -241,18 +254,8 @@ int main() {
     pthread_mutex_init(&lock, NULL);
 
     int round = 0;
-    int start_player = 0;
-
-    // 9heart searching
-    for (int i = 0; i < num_players; i++) {
-        for (int j = 0; j < TOTAL_CARDS / num_players; j++) {
-            if (players[i].cards[j].suit == NINE && players[i].cards[j].badge == HEART) {
-                start_player = i;
-                break;
-            }
-        }
-        if (start_player != 0) break;
-    }
+    Card start_card = {NINE, HEART};
+    int start_player = find_first_player(players, &start_card, &num_players);
 
     while (!is_game_done) {
         for (int i = 0; i < num_players; i++) {
