@@ -58,12 +58,16 @@ void *play_game(void *arg) {
     return NULL;
 }
 
+void swap(Card *c1, Card *c2) {
+    Card tmp = *c1;
+    *c1 = *c2;
+    *c2 = tmp;
+}
+
 void shuffle_deck(Card *deck) {
-    for (int i = TOTAL_CARDS - 1; i > 0; i--) {
-        int j = rand() % (i + 1);
-        Card temp = deck[i];
-        deck[i] = deck[j];
-        deck[j] = temp;
+    for(int i=0; i<TOTAL_CARDS; i++) {
+        int index = rand() % TOTAL_CARDS;
+        swap(&deck[i], &deck[index]);
     }
 }
 
@@ -168,7 +172,6 @@ int main() {
     pthread_t threads[num_players];
     Player players[num_players];
     players_init(players, deck, &num_players);
-
 
     pthread_mutex_init(&lock, NULL);
 
