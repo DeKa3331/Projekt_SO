@@ -299,14 +299,15 @@ void print_player_deck(Player *player) {
 }
 
 int find_first_player(Player *players, Card *card_to_find, int *num_players) {
-    for(int i=0; i < *num_players; i++) {
-        int index = find_card(card_to_find, players->cards, TOTAL_CARDS);
-        if (index != -1) return index;
+    for(int i = 0; i < *num_players; i++) {
+        int index = find_card(card_to_find, players[i].cards, TOTAL_CARDS);
+        if (index != -1) return i;
     }
+    return -1;
 }
 
 int find_card(Card *card_to_find, Card *card_deck, int size) {
-    for(int i=0; i<size; i++) {
+    for(int i = 0; i < size; i++) {
         if(card_deck[i].badge == card_to_find->badge && card_deck[i].suit == card_to_find->suit) return i;
     }
     return -1;
@@ -338,6 +339,11 @@ int main() {
     Card to_find = START_CARD;
     int start_player = find_first_player(players, &to_find, &num_players);
 
+    if (start_player == -1) {
+        printf("No player has the starting card.\n");
+        return 1;
+    }
+
     while (!is_game_done) {
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
@@ -365,3 +371,4 @@ int main() {
 
     return 0;
 }
+
