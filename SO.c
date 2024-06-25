@@ -27,6 +27,7 @@ void fill_deck(Card*);
 void players_init(Player*, Card*, int*);
 void print_deck(Card *deck, int);
 void print_card(Card*);
+void swap(Card*, Card*);
 
 pthread_mutex_t lock;
 int current_value = 0;
