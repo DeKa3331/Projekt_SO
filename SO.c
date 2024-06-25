@@ -4,6 +4,7 @@
 #include <time.h>
 
 #define TOTAL_CARDS 24
+#define START_CARD {NINE, HEART}
 
 enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
 
@@ -30,6 +31,7 @@ void print_deck(Card *deck, int);
 void print_card(Card*);
 void swap(Card*, Card*);
 void print_player_deck(Player* player);
+int find_card(Card*, Card*, int);
 
 pthread_mutex_t lock;
 int is_game_done = 0;
@@ -52,6 +54,18 @@ void remove_from_pile(Player *player, int amount) {
     }
 }
 
+int find_smallest_card(Player *player) {
+    int min_index = -1;
+    for (int i = 0; i < TOTAL_CARDS; i++) {
+        if (player->cards[i].suit >= card_pile[cards_played-1].suit) {
+            if (min_index == -1 || player->cards[i].suit < player->cards[min_index].suit) {
+                min_index = i;
+            }
+        }
+    }
+    return min_index;
+}
+
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
 
@@ -65,18 +79,9 @@ void *play_game(void *arg) {
     int is_card_played = 0;
     int min_index = -1;
 
-    // smallest card
-    for (int i = 0; i < TOTAL_CARDS; i++) {
-        if (cards_played == 0 && player->cards[i].suit == NINE && player->cards[i].badge == HEART) {
-            min_index = i;
-            break;
-        }
-        else if (cards_played > 0 && player->cards[i].suit >= card_pile[cards_played-1].suit) {
-            if (min_index == -1 || player->cards[i].suit < player->cards[min_index].suit) {
-                min_index = i;
-            }
-        }
-    }
+    Card to_find = START_CARD;
+    if(cards_played == 0) min_index = find_card(&to_find, player->cards, TOTAL_CARDS);
+    min_index = find_smallest_card(player);
 
     if (min_index != -1) {
         is_card_played = 1;
@@ -223,12 +228,16 @@ void print_player_deck(Player *player) {
 
 int find_first_player(Player *players, Card *card_to_find, int *num_players) {
     for(int i=0; i < *num_players; i++) {
-        for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
-            if (players[i].cards[j].suit == card_to_find->suit && players[i].cards[j].badge == card_to_find->badge) {
-                return i;
-            }
-        }
+        int index = find_card(card_to_find, players->cards, TOTAL_CARDS);
+        if (index != -1) return index;
     }
+}
+
+int find_card(Card *card_to_find, Card *card_deck, int size) {
+    for(int i=0; i<size; i++) {
+        if(card_deck[i].badge == card_to_find->badge && card_deck[i].suit == card_to_find->suit) return i;
+    }
+    return -1;
 }
 
 int main() {
@@ -254,8 +263,8 @@ int main() {
     pthread_mutex_init(&lock, NULL);
 
     int round = 0;
-    Card start_card = {NINE, HEART};
-    int start_player = find_first_player(players, &start_card, &num_players);
+    Card to_find = START_CARD;
+    int start_player = find_first_player(players, &to_find, &num_players);
 
     while (!is_game_done) {
         for (int i = 0; i < num_players; i++) {
@@ -266,12 +275,6 @@ int main() {
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
             pthread_join(threads[current_player], NULL);
-        }
-
-        if (round == 0) {
-            for (int i = 0; i < num_players; i++) {
-                players[i].skipped = 0;
-            }
         }
 
         round++;
