@@ -16,7 +16,7 @@ typedef struct {
 
 typedef struct {
     int player_id;
-    int cards_cout;
+    int cards_out;
     Card cards[TOTAL_CARDS];
     int current_card;
 } Player;
@@ -30,21 +30,24 @@ void *play_game(void *arg) {
     Card card_played = {-1, -1};
 
     pthread_mutex_lock(&lock);
-    for (int i = 0; i < player->cards_cout; i++) {
+    for (int i = 0; i < player->cards_out; i++) {
         if (player->cards[i].suit >= current_value) {
             card_played = player->cards[i];
             player->cards[i].badge = -1;  // Mark card as played
             player->cards[i].suit = -1;
             current_value = card_played.suit;
-            printf("Player %d plays: %d\n", player->player_id, card_played);
+            printf("Player %d plays: ", player->player_id);
+            print_card(card_played);
+            printf("\n");
+            player->cards_out--;
             break;
         }
     }
-    pthread_mutex_unlock(&lock);
 
     if (card_played.badge == -1 && card_played.suit == -1) {
         printf("Player %d cannot play any card.\n", player->player_id);
     }
+    pthread_mutex_unlock(&lock);
 
     return NULL;
 }
@@ -71,10 +74,72 @@ void fill_deck(Card *deck) {
 void players_init(Player *players, Card *deck, int *num_players) {
     for (int i = 0; i < *num_players; i++) {
         players[i].player_id = i + 1;
+        players[i].cards_out = TOTAL_CARDS / *num_players;
         for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
             players[i].cards[j] = deck[i * TOTAL_CARDS / *num_players + j];
         }
+        for(int j = TOTAL_CARDS / *num_players; j < TOTAL_CARDS; j++) {
+            players[i].cards[j].badge = -1;
+            players[i].cards[j].suit = -1;
+        }
     }
+}
+
+void print_deck(Card *deck, int size) {
+    for(int i=0; i<size; i++) {
+        print_card(deck[i]);
+        printf(" ");
+    }
+    printf("\n");
+}
+
+void print_card(Card card) {
+    char suit, badge;
+    switch (card.suit) {
+    case NINE:
+        suit = '9';
+        break;
+    case TEN:
+        suit = 'T';
+        break;
+    case JACK:
+        suit = 'J';
+        break;
+    case QUEEN:
+        suit = 'Q';
+        break;
+    case KING:
+        suit = 'K';
+        break;
+    case ACE:
+        suit = 'A';
+        break;
+    case -1:
+        suit = '0';
+        break;
+    default:
+        break;
+    }
+    switch (card.badge) {
+    case DIAMOND:
+        badge = 'D';
+        break;
+    case HEART:
+        badge = 'H';
+        break;
+    case SPADE:
+        badge = 'S';
+        break;
+    case CLUB:
+        badge = 'C';
+        break;
+    case -1:
+        badge = '0';
+        break;
+    default:
+        break;
+    }
+    printf("%c-%c", suit, badge);
 }
 
 int main() {
@@ -90,6 +155,7 @@ int main() {
     Card deck[TOTAL_CARDS];
     fill_deck(deck);
     shuffle_deck(deck);
+    print_deck(deck, TOTAL_CARDS);
 
     srand(time(NULL));
 
