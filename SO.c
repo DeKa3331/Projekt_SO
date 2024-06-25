@@ -20,8 +20,10 @@ typedef struct {
     int cards_out;
     Card cards[TOTAL_CARDS];
     int current_card;
-    int skipped; // used for 1st round to start from player with K9
+    int skipped;
+    int local_index; // Nowe pole przechowujące lokalny index ostatnio zagranej karty
 } Player;
+
 
 void *play_game(void*);
 void shuffle_deck(Card*);
@@ -35,9 +37,12 @@ int find_card(Card*, Card*, int);
 void sort_by_suit(Card*, int);
 
 pthread_mutex_t lock;
+int num_players=0;
+int last_played_player = -1; // Globalna zmienna przechowująca ostatniego gracza, który wykonał ruch
 
 int is_game_done = 0;
 int winner = -1;
+int reverse_next_turn = 0;
 
 int cards_played = 0;
 Card card_pile[TOTAL_CARDS];
@@ -79,7 +84,7 @@ void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amoun
 
     int counter = 0;
     Card copies_tmp = {-1, -1};
-    for(int i=0; i<card_amount; i++) {
+    for(int i = 0; i < card_amount; i++) {
         if(deck[i].suit == -1) continue;
 
         if(deck[i].suit != copies_tmp.suit) {
@@ -96,20 +101,20 @@ void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amoun
 }
 
 void sort_by_suit(Card deck[], int card_amount) {
-    for(int i=0; i<card_amount; i++) {
-        for(int j=0; j<i; j++) {
+    for(int i = 0; i < card_amount; i++) {
+        for(int j = 0; j < i; j++) {
             if(deck[j].suit > deck[j+1].suit) swap(&deck[j], &deck[j+1]);
         }
     }
 }
 
-int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy top -> bottom
+int card_playing_logic(Player *player) {
     int index;
 
     // Looking for START_CARD (once)
     Card to_find = START_CARD;
     index = find_card(&to_find, player->cards, TOTAL_CARDS);
-    if(cards_played == 0 && index != -1) {
+    if (cards_played == 0 && index != -1) {
         printf("Initialization!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
@@ -125,15 +130,15 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
     int card_amount;
     Card card_multiplied;
     have_same_cards(player->cards, TOTAL_CARDS, &card_multiplied, &card_amount);
-    if(cards_played > 0 && card_amount >= 3) {
+    if (cards_played > 0 && card_amount >= 3) {
         printf("Three or more!\n");
         printf("Player %d plays: ", player->player_id);
         index = find_card(&card_multiplied, player->cards, TOTAL_CARDS);
 
-        for(int i=0; i < card_amount; i++) {
-            print_card(&player->cards[index+i]);
+        for (int i = 0; i < card_amount; i++) {
+            print_card(&player->cards[index + i]);
             printf(" ");
-            add_to_pile(player, index+i);
+            add_to_pile(player, index + i);
         }
         printf(" Left: %d \n", player->cards_out);
         print_player_deck(player);
@@ -143,7 +148,7 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
 
     // Looking for smallest card to play
     index = find_smallest_card(player);
-    if(cards_played > 0 && index != -1) {
+    if (cards_played > 0 && index != -1) {
         printf("Small card!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
@@ -151,11 +156,18 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
         printf(" Left: %d \n", player->cards_out);
         print_player_deck(player);
         printf("\n");
+
+        // Check if the played card is SPADE
+        if (player->cards[index].badge == SPADE) {
+            reverse_next_turn = 1;
+        }
+
         return 1;
     }
 
     return 0;
 }
+
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
@@ -163,6 +175,8 @@ void *play_game(void *arg) {
 
     pthread_mutex_lock(&lock);
     is_card_played = card_playing_logic(player);
+    player->local_index = find_card(&card_pile[cards_played - 1], player->cards, TOTAL_CARDS);
+
 
     // Check if the player has finished their cards
     if(player->cards_out == 0) {
@@ -185,6 +199,9 @@ void *play_game(void *arg) {
         }
     }
 
+    // Ustawiamy wartość globalną last_played_player na aktualnego gracza
+    last_played_player = player->player_id;
+
     pthread_mutex_unlock(&lock);
     return NULL;
 }
@@ -197,7 +214,7 @@ void swap(Card *c1, Card *c2) {
 }
 
 void shuffle_deck(Card *deck) {
-    for(int j=0; j<7; j++) {
+    for(int j = 0; j < 7; j++) {
         for(int i = 0; i < TOTAL_CARDS; i++) {
             int index = rand() % TOTAL_CARDS;
             swap(&deck[i], &deck[index]);
@@ -230,7 +247,6 @@ void players_init(Player *players, Card *deck, int *num_players) {
     }
 }
 
-
 void print_deck(Card *deck, int size) {
     for(int i = 0; i < size; i++) {
         print_card(&deck[i]);
@@ -241,7 +257,8 @@ void print_deck(Card *deck, int size) {
 
 void print_card(Card *card) {
     char suit, badge;
-    switch (card->suit) {
+    switch (card->suit)
+    {
         case NINE:
             suit = '9';
             break;
@@ -303,7 +320,7 @@ int find_first_player(Player *players, Card *card_to_find, int *num_players) {
         int index = find_card(card_to_find, players[i].cards, TOTAL_CARDS);
         if (index != -1) return i;
     }
-    return -1;
+    return 0;
 }
 
 int find_card(Card *card_to_find, Card *card_deck, int size) {
@@ -315,7 +332,6 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 
 int main() {
     srand(time(NULL));
-    int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
 
@@ -339,34 +355,50 @@ int main() {
     Card to_find = START_CARD;
     int start_player = find_first_player(players, &to_find, &num_players);
 
-    if (start_player == -1) {
-        printf("No player has the starting card.\n");
-        return 1;
+while (!is_game_done) {
+    for (int i = 0; i < num_players; i++) {
+        int current_player;
+        if (reverse_next_turn) {
+            current_player = (start_player - i + num_players) % num_players; // Cofanie się gracza
+        } else {
+            current_player = (start_player + i) % num_players;
+        }
+
+        pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
     }
 
-    while (!is_game_done) {
-        for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
-            pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
+    for (int i = 0; i < num_players; i++) {
+        int current_player;
+        if (reverse_next_turn) {
+            current_player = (start_player - i + num_players) % num_players; // Cofanie się gracza
+        } else {
+            current_player = (start_player + i) % num_players;
         }
 
-        for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
-            pthread_join(threads[current_player], NULL);
-        }
+        pthread_join(threads[current_player], NULL);
 
-        // Check if the game is done
+        // Sprawdzenie, czy należy odwrócić kolejność
         pthread_mutex_lock(&lock);
-        if (is_game_done) {
-            pthread_mutex_unlock(&lock);
-            break;
+        if (last_played_player != -1 && players[current_player].cards[players[current_player].local_index].badge == SPADE) {
+            start_player = (current_player - 1 + num_players) % num_players;
+            reverse_next_turn = 0;
+        } else {
+            start_player = (start_player + 1) % num_players;
         }
         pthread_mutex_unlock(&lock);
-
-        round++;
     }
 
-    printf("Player %d wins after %d rounds!\n", winner, round);
+    // Sprawdzenie, czy gra się zakończyła
+    pthread_mutex_lock(&lock);
+    if (is_game_done) {
+        pthread_mutex_unlock(&lock);
+        break;
+    }
+    pthread_mutex_unlock(&lock);
+
+    round++;
+}
+   printf("Player %d wins after %d rounds!\n", winner, round);
     pthread_mutex_destroy(&lock);
 
     return 0;
