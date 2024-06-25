@@ -55,26 +55,36 @@ void *play_game(void *arg) {
     int is_card_played = 0;
 
     pthread_mutex_lock(&lock);
-    for (int i = 0; i < player->cards_out; i++) {
-        if (player->cards[i].suit >= card_pile[cards_played-1].suit) {
+    for (int i = 0; i < TOTAL_CARDS; i++) {
+        if (cards_played == 0 && player->cards[i].suit == NINE && player->cards[i].badge == HEART) {
             is_card_played = 1;
             add_to_pile(&player->cards[i]);
             printf("Player %d plays: ", player->player_id);
             print_card(&player->cards[i]);
             printf("\n");
-            
             player->cards[i].badge = -1;  // Mark card as played
             player->cards[i].suit = -1;
             player->cards_out--;
             break;
         }
+        else if (cards_played > 0 && player->cards[i].suit >= card_pile[cards_played-1].suit) {
+            is_card_played = 1;
+            add_to_pile(&player->cards[i]);
+            printf("Player %d plays: ", player->player_id);
+            print_card(&player->cards[i]);
+            printf(" Left: %d", --player->cards_out);
+            printf("\n");
+            player->cards[i].badge = -1;  // Mark card as played
+            player->cards[i].suit = -1;
+            break;
+        }
     }
 
     if (!is_card_played) {
-        printf("Player %d cannot play any card.\n", player->player_id);
         remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
+        printf("Player %d cannot play any card. Left: %d\n", player->player_id, player->cards_out);
     }
-    print_deck(card_pile, cards_played);
+    //print_deck(card_pile, cards_played);
 
     if(player->cards_out == 0) {
         is_game_done = 1;
