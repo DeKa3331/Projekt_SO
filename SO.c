@@ -19,7 +19,6 @@ typedef struct {
     int cards_out;
     Card cards[TOTAL_CARDS];
     int current_card;
-    int skipped; // used for 1st round to start from player with K9
 } Player;
 
 void *play_game(void*);
@@ -41,8 +40,8 @@ void add_to_pile(Card *card) {
 }
 
 void remove_from_pile(Player *player, int amount) {
-    for(int i = 0; i < amount; i++) {
-        for(int j = 0; j < TOTAL_CARDS; j++) {
+    for(int i=0; i<amount; i++) {
+        for(int j=0; j<TOTAL_CARDS; j++) {
             if(!(player->cards[j].badge == -1 && player->cards[j].suit == -1)) continue;
             player->cards[j] = card_pile[cards_played-- - 1];
             player->cards_out++;
@@ -53,15 +52,9 @@ void remove_from_pile(Player *player, int amount) {
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
+    int is_card_played = 0;
 
     pthread_mutex_lock(&lock);
-    if (player->skipped) {
-        player->skipped = 0;
-        pthread_mutex_unlock(&lock);
-        return NULL;
-    }
-
-    int is_card_played = 0;
     for (int i = 0; i < TOTAL_CARDS; i++) {
         if (cards_played == 0 && player->cards[i].suit == NINE && player->cards[i].badge == HEART) {
             is_card_played = 1;
@@ -78,8 +71,9 @@ void *play_game(void *arg) {
             is_card_played = 1;
             add_to_pile(&player->cards[i]);
             printf("Player %d plays: ", player->player_id);
-            print_card(&player->cards[i]);
-            printf(" Left: %d \n", --player->cards_out);
+            print_card(&player->cards[i]); 
+	    printf("\n");
+	    printf(" Left: %d", --player->cards_out);
             printf("\n");
             player->cards[i].badge = -1;  // Mark card as played
             player->cards[i].suit = -1;
@@ -89,11 +83,12 @@ void *play_game(void *arg) {
 
     if (!is_card_played) {
         remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
-        printf("Player %d cannot play any card. Left: %d\n", player->player_id, player->cards_out);
-        if (cards_played == 0) {
-            player->skipped = 1;
-        }
+        printf("Player %d cannot play any card.Drawing 3 ", player->player_id);
+	printf("\n");
+   	printf("Left: %d\n",player->cards_out);
+   
     }
+    //print_deck(card_pile, cards_played);
 
     if(player->cards_out == 0) {
         is_game_done = 1;
@@ -112,7 +107,7 @@ void swap(Card *c1, Card *c2) {
 }
 
 void shuffle_deck(Card *deck) {
-    for(int i = 0; i < TOTAL_CARDS; i++) {
+    for(int i=0; i<TOTAL_CARDS; i++) {
         int index = rand() % TOTAL_CARDS;
         swap(&deck[i], &deck[index]);
     }
@@ -120,8 +115,8 @@ void shuffle_deck(Card *deck) {
 
 void fill_deck(Card *deck) {
     int index = 0;
-    for(int suit = NINE; suit <= ACE; suit++) {
-        for(int badge = HEART; badge <= CLUB; badge++) {
+    for(int suit=NINE; suit<=ACE; suit++) {
+        for(int badge=HEART; badge<=CLUB; badge++) {
             deck[index].badge = badge;
             deck[index++].suit = suit;
         }
@@ -132,7 +127,6 @@ void players_init(Player *players, Card *deck, int *num_players) {
     for (int i = 0; i < *num_players; i++) {
         players[i].player_id = i + 1;
         players[i].cards_out = TOTAL_CARDS / *num_players;
-        players[i].skipped = 0; // Inicjalizacja pola skipped
         for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
             players[i].cards[j] = deck[i * TOTAL_CARDS / *num_players + j];
         }
@@ -144,7 +138,7 @@ void players_init(Player *players, Card *deck, int *num_players) {
 }
 
 void print_deck(Card *deck, int size) {
-    for(int i = 0; i < size; i++) {
+    for(int i=0; i<size; i++) {
         print_card(&deck[i]);
         printf(" ");
     }
@@ -154,48 +148,48 @@ void print_deck(Card *deck, int size) {
 void print_card(Card *card) {
     char suit, badge;
     switch (card->suit) {
-        case NINE:
-            suit = '9';
-            break;
-        case TEN:
-            suit = 'T';
-            break;
-        case JACK:
-            suit = 'J';
-            break;
-        case QUEEN:
-            suit = 'Q';
-            break;
-        case KING:
-            suit = 'K';
-            break;
-        case ACE:
-            suit = 'A';
-            break;
-        case -1:
-            suit = '0';
-            break;
-        default:
-            break;
+    case NINE:
+        suit = '9';
+        break;
+    case TEN:
+        suit = 'T';
+        break;
+    case JACK:
+        suit = 'J';
+        break;
+    case QUEEN:
+        suit = 'Q';
+        break;
+    case KING:
+        suit = 'K';
+        break;
+    case ACE:
+        suit = 'A';
+        break;
+    case -1:
+        suit = '0';
+        break;
+    default:
+        break;
     }
     switch (card->badge) {
-        case DIAMOND:
-            badge = 'D';
-            break;
-        case HEART:
-            badge = 'H';
-            break;
-        case SPADE:
-            badge = 'S';
-            break;
-        case CLUB:
-            badge = 'C';
-            break;
-        case -1:
-            badge = '0';
-            break;
-        default:
-            break;
+    case DIAMOND:
+        badge = 'D';
+        break;
+    case HEART:
+        badge = 'H';
+        break;
+    case SPADE:
+        badge = 'S';
+        break;
+    case CLUB:
+        badge = 'C';
+        break;
+    case -1:
+        badge = '0';
+        break;
+    default:
+        break;
     }
     printf("%c-%c", suit, badge);
 }
@@ -223,41 +217,20 @@ int main() {
     pthread_mutex_init(&lock, NULL);
 
     int round = 0;
-    int start_player = 0;
-
-    // finding 9 heart
-    for (int i = 0; i < num_players; i++) {
-        for (int j = 0; j < TOTAL_CARDS / num_players; j++) {
-            if (players[i].cards[j].suit == NINE && players[i].cards[j].badge == HEART) {
-                start_player = i;
-                break;
-            }
-        }
-        if (start_player != 0) break;
-    }
-
     while (!is_game_done) {
         for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
-            pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
+            pthread_create(&threads[i], NULL, play_game, &players[i]);
         }
 
         for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
-            pthread_join(threads[current_player], NULL);
-        }
-
-        if (round == 0) {
-            for (int i = 0; i < num_players; i++) {
-                players[i].skipped = 0;
-            }
+            pthread_join(threads[i], NULL);
         }
 
         round++;
     }
 
-    printf("Player %d wins after %d rounds!\n", winner, round);
     pthread_mutex_destroy(&lock);
 
     return 0;
 }
+
