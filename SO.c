@@ -21,6 +21,12 @@ typedef struct {
     int current_card;
 } Player;
 
+void *play_game(void*);
+void shuffle_deck(Card*);
+void fill_deck(Card*);
+void players_init(Player*, Card*, int*);
+void print_deck(Card *deck, int);
+void print_card(Card*);
 
 pthread_mutex_t lock;
 int current_value = 0;
@@ -37,7 +43,7 @@ void *play_game(void *arg) {
             player->cards[i].suit = -1;
             current_value = card_played.suit;
             printf("Player %d plays: ", player->player_id);
-            print_card(card_played);
+            print_card(&card_played);
             printf("\n");
             player->cards_out--;
             break;
@@ -87,15 +93,15 @@ void players_init(Player *players, Card *deck, int *num_players) {
 
 void print_deck(Card *deck, int size) {
     for(int i=0; i<size; i++) {
-        print_card(deck[i]);
+        print_card(&deck[i]);
         printf(" ");
     }
     printf("\n");
 }
 
-void print_card(Card card) {
+void print_card(Card *card) {
     char suit, badge;
-    switch (card.suit) {
+    switch (card->suit) {
     case NINE:
         suit = '9';
         break;
@@ -120,7 +126,7 @@ void print_card(Card card) {
     default:
         break;
     }
-    switch (card.badge) {
+    switch (card->badge) {
     case DIAMOND:
         badge = 'D';
         break;
