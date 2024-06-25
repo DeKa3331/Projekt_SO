@@ -30,7 +30,8 @@ void print_card(Card*);
 void swap(Card*, Card*);
 
 pthread_mutex_t lock;
-int current_value = 0;
+int is_game_done = 0;
+int winner = -1;
 int cards_played = 0;
 Card card_pile[TOTAL_CARDS];
 
@@ -42,34 +43,44 @@ void remove_from_pile(Player *player, int amount) {
     for(int i=0; i<amount; i++) {
         for(int j=0; j<TOTAL_CARDS; j++) {
             if(!(player->cards[j].badge == -1 && player->cards[j].suit == -1)) continue;
-            player->cards[j] = card_pile[cards_played--];
+            player->cards[j] = card_pile[cards_played-- - 1];
             player->cards_out++;
+            break;
         }
     }
 }
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
-    Card card_played = {-1, -1};
+    int is_card_played = 0;
 
     pthread_mutex_lock(&lock);
     for (int i = 0; i < player->cards_out; i++) {
-        if (player->cards[i].suit >= current_value) {
-            card_played = player->cards[i];
+        if (player->cards[i].suit >= card_pile[cards_played-1].suit) {
+            is_card_played = 1;
+            add_to_pile(&player->cards[i]);
+            printf("Player %d plays: ", player->player_id);
+            print_card(&player->cards[i]);
+            printf("\n");
+            
             player->cards[i].badge = -1;  // Mark card as played
             player->cards[i].suit = -1;
-            current_value = card_played.suit;
-            printf("Player %d plays: ", player->player_id);
-            print_card(&card_played);
-            printf("\n");
             player->cards_out--;
             break;
         }
     }
 
-    if (card_played.badge == -1 && card_played.suit == -1) {
+    if (!is_card_played) {
         printf("Player %d cannot play any card.\n", player->player_id);
+        remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
     }
+    print_deck(card_pile, cards_played);
+
+    if(player->cards_out == 0) {
+        is_game_done = 1;
+        winner = player->player_id;
+    }
+
     pthread_mutex_unlock(&lock);
 
     return NULL;
@@ -192,7 +203,7 @@ int main() {
     pthread_mutex_init(&lock, NULL);
 
     int round = 0;
-    while (round < TOTAL_CARDS / num_players) {
+    while (!is_game_done) {
         for (int i = 0; i < num_players; i++) {
             pthread_create(&threads[i], NULL, play_game, &players[i]);
         }
