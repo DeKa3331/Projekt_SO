@@ -19,8 +19,6 @@ typedef struct {
     int player_id;
     int cards_out;
     Card cards[TOTAL_CARDS];
-    int current_card;
-    int skipped; // used for 1st round to start from player with K9
     int next_player_id;
 } Player;
 
@@ -33,7 +31,7 @@ void print_card(Card*);
 void swap(Card*, Card*);
 void print_player_deck(Player* player);
 int find_card(Card*, Card*, int);
-void sort_by_suit(Card*, int);
+void sort_by_suit(Card[], int);
 
 pthread_mutex_t lock;
 
@@ -110,7 +108,7 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
     // Looking for START_CARD (once)
     Card to_find = START_CARD;
     index = find_card(&to_find, player->cards, TOTAL_CARDS);
-    if(cards_played == 0 && index != -1) {
+    if(cards_played == 0 && index != -1 && is_game_done != 1) {
         printf("\nInitialization!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
@@ -118,15 +116,13 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
         printf(" Left: %d \n", player->cards_out);
         printf("\n");
         return 1;
-    } else {
-        player->skipped = 1;
     }
 
     // Looking for 3 or more of the same suit
     int card_amount;
     Card card_multiplied;
     have_same_cards(player->cards, TOTAL_CARDS, &card_multiplied, &card_amount);
-    if(cards_played > 0 && card_amount >= 3) {
+    if(cards_played > 0 && card_amount >= 3 && is_game_done != 1) {
         printf("Three or more!\n");
         printf("Player %d plays: ", player->player_id);
         sort_by_suit(player->cards, TOTAL_CARDS);
@@ -145,7 +141,7 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
 
     // Looking for smallest card to play
     index = find_smallest_card(player);
-    if(cards_played > 0 && index != -1) {
+    if(cards_played > 0 && index != -1 && is_game_done != 1) {
         printf("Small card!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
@@ -177,7 +173,7 @@ void *play_game(void *arg) {
         return NULL;
     }
 
-    if (!is_card_played) {
+    if (!is_card_played && is_game_done != 1) {
         // Logic for handling when no card is played
 
         remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
@@ -186,9 +182,6 @@ void *play_game(void *arg) {
         sort_by_suit(player->cards, TOTAL_CARDS);
         print_player_deck(player);
         printf("\n");
-        if (cards_played == 0) {
-            player->skipped = 1;
-        }
     }
 
     pthread_mutex_unlock(&lock);
@@ -226,7 +219,6 @@ void players_init(Player *players, Card *deck, int *num_players) {
         if(i == *num_players - 1) players[i].next_player_id = 1;
         else players[i].next_player_id = i + 2;
         players[i].cards_out = TOTAL_CARDS / *num_players;
-        players[i].skipped = 0;
         for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
             players[i].cards[j] = deck[i * TOTAL_CARDS / *num_players + j];
         }
