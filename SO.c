@@ -121,6 +121,8 @@ int card_playing_logic(Player *player) {
         add_to_pile(player, index);
         printf(" Left: %d \n", player->cards_out);
         printf("\n");
+
+        player->local_index = index;
         return 1;
     } else {
         player->skipped = 1;
@@ -143,6 +145,7 @@ int card_playing_logic(Player *player) {
         printf(" Left: %d \n", player->cards_out);
         print_player_deck(player);
         printf("\n");
+        player->local_index = index+2;
         return 1;
     }
 
@@ -155,6 +158,7 @@ int card_playing_logic(Player *player) {
         add_to_pile(player, index);
         printf(" Left: %d \n", player->cards_out);
         print_player_deck(player);
+        player->local_index = index;
         printf("\n");
 
         // Check if the played card is SPADE
@@ -175,8 +179,6 @@ void *play_game(void *arg) {
 
     pthread_mutex_lock(&lock);
     is_card_played = card_playing_logic(player);
-    player->local_index = find_card(&card_pile[cards_played - 1], player->cards, TOTAL_CARDS);
-
 
     // Check if the player has finished their cards
     if(player->cards_out == 0) {
@@ -331,7 +333,7 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 }
 
 int main() {
-    srand(time(NULL));
+    srand(0);
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
 
