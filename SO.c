@@ -392,9 +392,57 @@ int main() {
         round++;
     }
 
-    printf("Player %d wins after %d rounds!\n", winner, round);
+     printf("Player %d wins after %d rounds!\n", winner, round);
+
+    // Determining places based on the number of players
+    int places[num_players];
+    for (int i = 0; i < num_players; i++) {
+        places[i] = 0;
+    }
+
+    // Determine the winner's position
+    places[winner - 1] = 1;
+
+    // Determine positions for the rest of the players
+    int position = 2;
+    for (int i = 0; i < num_players; i++) {
+        if (i != (winner - 1)) { // Skip the winner
+            places[i] = position++;
+        }
+    }
+
+    // Print results based on the number of players
+    switch (num_players) {
+        case 2:
+            printf("Player %d is the winner!\n", winner);
+            break;
+        case 3:
+            for (int i = 0; i < num_players; i++) {
+                if (places[i] == 1) {
+                    printf("Player %d is the winner!\n", i + 1);
+                } else {
+                    printf("Player %d is in %d place.\n", i + 1, places[i]);
+                }
+            }
+            break;
+        case 4:
+            for (int i = 0; i < num_players; i++) {
+                if (places[i] == 1) {
+                    printf("Player %d is the winner!\n", i + 1);
+                } else if (places[i] == 2) {
+                    printf("Player %d is in 2nd place.\n", i + 1);
+                } else if (places[i] == 3) {
+                    printf("Player %d is in 3rd place.\n", i + 1);
+                } else {
+                    printf("Player %d is in 4th place.\n", i + 1);
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
     pthread_mutex_destroy(&lock);
 
     return 0;
 }
-
