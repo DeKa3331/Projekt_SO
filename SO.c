@@ -6,8 +6,15 @@
 #define TOTAL_CARDS 24
 #define START_CARD {NINE, HEART}
 
-enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
+#define RED "\x1B[31m"
+#define GREEN "\x1B[32m"
+#define YELLOW "\x1B[33m"
+#define BLUE "\x1B[34m"
+#define MAGENTA "\x1B[35m"
+#define CYAN "\x1B[36m"
+#define RESET "\x1B[0m"
 
+enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
 enum suit {NINE = 9, TEN = 10, JACK = 11, QUEEN = 12, KING = 13, ACE = 14};
 
 typedef struct {
@@ -38,7 +45,6 @@ pthread_mutex_t lock;
 int is_game_done = 0;
 int winner = -1;
 int actual_player = 0;
-
 int cards_played = 0;
 Card card_pile[TOTAL_CARDS];
 
@@ -162,7 +168,7 @@ void *play_game(void *arg) {
     while(player->player_id != actual_player);
     pthread_mutex_lock(&lock);
     actual_player = player->next_player_id;
-    
+
     is_card_played = card_playing_logic(player);
 
     // Check if the player has finished their cards
@@ -226,11 +232,12 @@ void players_init(Player *players, Card *deck, int *num_players) {
             players[i].cards[j].badge = -1;
             players[i].cards[j].suit = -1;
         }
+           }
     }
-}
+
 
 void print_deck(Card *deck, int size) {
-    for(int i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         print_card(&deck[i]);
         printf(" ");
     }
@@ -239,6 +246,24 @@ void print_deck(Card *deck, int size) {
 
 void print_card(Card *card) {
     char suit;
+    char *color;
+    switch (card->badge) {
+        case HEART:
+            color = RED;
+            break;
+        case DIAMOND:
+            color = MAGENTA;
+            break;
+        case SPADE:
+            color = BLUE;
+            break;
+        case CLUB:
+            color = GREEN;
+            break;
+        default:
+            color = RESET;
+            break;
+    }
     switch (card->suit) {
         case NINE:
             suit = '9';
@@ -258,39 +283,37 @@ void print_card(Card *card) {
         case ACE:
             suit = 'A';
             break;
-        case -1:
-            suit = '0';
-            break;
         default:
+            suit = '?';
             break;
     }
-    printf("%c", suit);
-    
+
+    printf("%s[ %c", color, suit);
+
     switch (card->badge) {
         case DIAMOND:
-            printf("\u2666");
+            printf("\u2666 ");
             break;
         case HEART:
-            printf("\u2665");
+            printf("\u2665 ");
             break;
         case SPADE:
-            printf("\u2660");
+            printf("\u2660 ");
             break;
         case CLUB:
-            printf("\u2663");
-            break;
-        case -1:
-            printf("0");
+            printf("\u2663 ");
             break;
         default:
+            printf(" ? ");
             break;
     }
-    //printf("%c-%c", suit, badge);
+    printf("]%s", RESET);
 }
 
 void print_player_deck(Player *player) {
-    for(int i = 0; i < TOTAL_CARDS; i++) {
-        if(player->cards[i].suit != -1 && player->cards[i].badge != -1) {
+    printf("Player %d's cards: ", player->player_id);
+    for (int i = 0; i < TOTAL_CARDS; i++) {
+        if (player->cards[i].suit != -1 && player->cards[i].badge != -1) {
             print_card(&player->cards[i]);
             printf(" ");
         }
@@ -299,7 +322,7 @@ void print_player_deck(Player *player) {
 }
 
 int find_first_player(Player *players, Card *card_to_find, int *num_players) {
-    for(int i = 0; i < *num_players; i++) {
+    for (int i = 0; i < *num_players; i++) {
         int index = find_card(card_to_find, players[i].cards, TOTAL_CARDS);
         if (index != -1) return players[i].player_id;
     }
@@ -307,8 +330,8 @@ int find_first_player(Player *players, Card *card_to_find, int *num_players) {
 }
 
 int find_card(Card *card_to_find, Card *card_deck, int size) {
-    for(int i = 0; i < size; i++) {
-        if(card_deck[i].badge == card_to_find->badge && card_deck[i].suit == card_to_find->suit) return i;
+    for (int i = 0; i < size; i++) {
+        if (card_deck[i].badge == card_to_find->badge && card_deck[i].suit == card_to_find->suit) return i;
     }
     return -1;
 }
@@ -316,8 +339,7 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 int main() {
     time_t t = time(NULL);
     srand(t);
-    printf("Seed %d\n", t);
-
+    printf("Seed %ld\n", (long int)t);
     int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
@@ -354,12 +376,11 @@ int main() {
             pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
         }
 
-        
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
             pthread_join(threads[current_player], NULL);
         }
-        
+
         // Check if the game is done
         pthread_mutex_lock(&lock);
         if (is_game_done) {
@@ -376,3 +397,4 @@ int main() {
 
     return 0;
 }
+
