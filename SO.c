@@ -171,7 +171,17 @@ void *play_game(void *arg) {
 
     while(player->player_id != actual_player);
     pthread_mutex_lock(&lock);
-    actual_player = player->next_player_id;
+
+    // Check if the last card played is a spade
+    if (is_last_card_spade()) {
+        printf("Last card played is SPADE (Pik)!\n");
+        actual_player = (player->next_player_id)-1 ;
+        if(actual_player==0)
+        {
+            actual_player=num_players;
+        }
+        printf("Next player: %d\n", actual_player);
+    }
 
     is_card_played = card_playing_logic(player);
 
@@ -193,18 +203,6 @@ void *play_game(void *arg) {
         print_player_deck(player);
         printf("\n");
     }
-
-    // Check if the last card played is a spade
-    if (is_last_card_spade()) {
-        printf("Last card played is SPADE (Pik)!\n");
-        actual_player = (actual_player - 1) ;
-        if(actual_player==0)
-        {
-            actual_player=num_players;
-        }
-        printf("Next player: %d\n", actual_player);
-    }
-
     pthread_mutex_unlock(&lock);
     return NULL;
 }
