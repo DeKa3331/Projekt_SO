@@ -162,7 +162,7 @@ void *play_game(void *arg) {
     while(player->player_id != actual_player);
     pthread_mutex_lock(&lock);
     actual_player = player->next_player_id;
-    
+
     is_card_played = card_playing_logic(player);
 
     // Check if the player has finished their cards
@@ -265,7 +265,7 @@ void print_card(Card *card) {
             break;
     }
     printf("%c", suit);
-    
+
     switch (card->badge) {
         case DIAMOND:
             printf("\u2666");
@@ -316,7 +316,7 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 int main() {
     time_t t = time(NULL);
     srand(t);
-    printf("Seed %d\n", t);
+    printf("Seed %ld\n", (long int)t);  // Corrected format specifier and cast
 
     int num_players;
     printf("Enter the number of players: ");
@@ -354,12 +354,11 @@ int main() {
             pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
         }
 
-        
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
             pthread_join(threads[current_player], NULL);
         }
-        
+
         // Check if the game is done
         pthread_mutex_lock(&lock);
         if (is_game_done) {
