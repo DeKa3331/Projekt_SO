@@ -19,8 +19,6 @@ typedef struct {
     int player_id;
     int cards_out;
     Card cards[TOTAL_CARDS];
-    int current_card;
-    int skipped; // used for 1st round to start from player with K9
     int next_player_id;
 } Player;
 
@@ -33,10 +31,12 @@ void print_card(Card*);
 void swap(Card*, Card*);
 void print_player_deck(Player* player);
 int find_card(Card*, Card*, int);
-void sort_by_suit(Card*, int);
+void sort_by_suit(Card[], int);
+int is_last_card_spade();
 
 pthread_mutex_t lock;
 
+int num_players=0;
 int is_game_done = 0;
 int winner = -1;
 int actual_player = 0;
@@ -75,8 +75,6 @@ int find_smallest_card(Player *player) {
 }
 
 void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amount) {
-    sort_by_suit(deck, card_amount);
-
     *copy_amount = 0;
 
     int counter = 0;
@@ -98,36 +96,44 @@ void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amoun
 }
 
 void sort_by_suit(Card deck[], int card_amount) {
-    for(int i=0; i<card_amount; i++) {
-        for(int j=0; j<i; j++) {
+    for(int i=0; i<card_amount - 1; i++) {
+        for(int j=0; j<card_amount - i - 1; j++) {
             if(deck[j].suit > deck[j+1].suit) swap(&deck[j], &deck[j+1]);
         }
     }
 }
 
+int is_last_card_spade() {
+    if (cards_played > 0 && card_pile[cards_played - 1].badge == SPADE) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
 int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy top -> bottom
+    sort_by_suit(player->cards, TOTAL_CARDS);
     int index;
 
     // Looking for START_CARD (once)
     Card to_find = START_CARD;
     index = find_card(&to_find, player->cards, TOTAL_CARDS);
-    if(cards_played == 0 && index != -1) {
-        printf("Initialization!\n");
+    if(cards_played == 0 && index != -1 && is_game_done != 1) {
+        printf("\nInitialization!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
         add_to_pile(player, index);
         printf(" Left: %d \n", player->cards_out);
         printf("\n");
         return 1;
-    } else {
-        player->skipped = 1;
     }
 
     // Looking for 3 or more of the same suit
     int card_amount;
     Card card_multiplied;
     have_same_cards(player->cards, TOTAL_CARDS, &card_multiplied, &card_amount);
-    if(cards_played > 0 && card_amount >= 3) {
+    if(cards_played > 0 && card_amount >= 3 && is_game_done != 1) {
         printf("Three or more!\n");
         printf("Player %d plays: ", player->player_id);
         sort_by_suit(player->cards, TOTAL_CARDS);
@@ -146,7 +152,7 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
 
     // Looking for smallest card to play
     index = find_smallest_card(player);
-    if(cards_played > 0 && index != -1) {
+    if(cards_played > 0 && index != -1 && is_game_done != 1) {
         printf("Small card!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
@@ -157,7 +163,19 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
         return 1;
     }
 
-    return 0;
+
+
+     // LAST PLAYED (SPADE)
+    if (is_last_card_spade()) {
+        printf("Last card played is SPADE (Pik)!\n");
+          actual_player = player->player_id - 1; // Poprzedni gracz
+        if (actual_player == 0) {
+            actual_player = num_players;
+
+        }
+
+        return 0;
+    }
 }
 
 void *play_game(void *arg) {
@@ -167,7 +185,7 @@ void *play_game(void *arg) {
     while(player->player_id != actual_player);
     pthread_mutex_lock(&lock);
     actual_player = player->next_player_id;
-    
+
     is_card_played = card_playing_logic(player);
 
     // Check if the player has finished their cards
@@ -178,7 +196,7 @@ void *play_game(void *arg) {
         return NULL;
     }
 
-    if (!is_card_played) {
+    if (!is_card_played && is_game_done != 1) {
         // Logic for handling when no card is played
 
         remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
@@ -187,15 +205,11 @@ void *play_game(void *arg) {
         sort_by_suit(player->cards, TOTAL_CARDS);
         print_player_deck(player);
         printf("\n");
-        if (cards_played == 0) {
-            player->skipped = 1;
-        }
     }
 
     pthread_mutex_unlock(&lock);
     return NULL;
 }
-
 
 void swap(Card *c1, Card *c2) {
     Card tmp = *c1;
@@ -228,7 +242,6 @@ void players_init(Player *players, Card *deck, int *num_players) {
         if(i == *num_players - 1) players[i].next_player_id = 1;
         else players[i].next_player_id = i + 2;
         players[i].cards_out = TOTAL_CARDS / *num_players;
-        players[i].skipped = 0;
         for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
             players[i].cards[j] = deck[i * TOTAL_CARDS / *num_players + j];
         }
@@ -248,7 +261,7 @@ void print_deck(Card *deck, int size) {
 }
 
 void print_card(Card *card) {
-    char suit, badge;
+    char suit;
     switch (card->suit) {
         case NINE:
             suit = '9';
@@ -274,26 +287,28 @@ void print_card(Card *card) {
         default:
             break;
     }
+    printf("%c", suit);
+
     switch (card->badge) {
         case DIAMOND:
-            badge = 'D';
+            printf("\u2666");
             break;
         case HEART:
-            badge = 'H';
+            printf("\u2665");
             break;
         case SPADE:
-            badge = 'S';
+            printf("\u2660");
             break;
         case CLUB:
-            badge = 'C';
+            printf("\u2663");
             break;
         case -1:
-            badge = '0';
+            printf("0");
             break;
         default:
             break;
     }
-    printf("%c-%c", suit, badge);
+    //printf("%c-%c", suit, badge);
 }
 
 void print_player_deck(Player *player) {
@@ -322,8 +337,10 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 }
 
 int main() {
-    srand(0);
-    int num_players;
+    time_t t = time(NULL);
+    srand(t);
+    printf("Seed %ld\n", (long int)t);  // Corrected format specifier and cast
+
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
 
@@ -356,18 +373,13 @@ int main() {
     while (1) {
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
-            
-            //play_game(&players[current_player]);
-
             pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
         }
 
-        
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
             pthread_join(threads[current_player], NULL);
         }
-        
 
         // Check if the game is done
         pthread_mutex_lock(&lock);
@@ -385,4 +397,3 @@ int main() {
 
     return 0;
 }
-
