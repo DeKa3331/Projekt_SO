@@ -75,8 +75,6 @@ int find_smallest_card(Player *player) {
 }
 
 void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amount) {
-    sort_by_suit(deck, card_amount);
-
     *copy_amount = 0;
 
     int counter = 0;
@@ -106,13 +104,14 @@ void sort_by_suit(Card deck[], int card_amount) {
 }
 
 int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy top -> bottom
+    sort_by_suit(player->cards, TOTAL_CARDS);
     int index;
 
     // Looking for START_CARD (once)
     Card to_find = START_CARD;
     index = find_card(&to_find, player->cards, TOTAL_CARDS);
     if(cards_played == 0 && index != -1) {
-        printf("Initialization!\n");
+        printf("\nInitialization!\n");
         printf("Player %d plays: ", player->player_id);
         print_card(&player->cards[index]);
         add_to_pile(player, index);
@@ -247,7 +246,7 @@ void print_deck(Card *deck, int size) {
 }
 
 void print_card(Card *card) {
-    char suit, badge;
+    char suit;
     switch (card->suit) {
         case NINE:
             suit = '9';
@@ -273,26 +272,28 @@ void print_card(Card *card) {
         default:
             break;
     }
+    printf("%c", suit);
+    
     switch (card->badge) {
         case DIAMOND:
-            badge = 'D';
+            printf("\u2666");
             break;
         case HEART:
-            badge = 'H';
+            printf("\u2665");
             break;
         case SPADE:
-            badge = 'S';
+            printf("\u2660");
             break;
         case CLUB:
-            badge = 'C';
+            printf("\u2663");
             break;
         case -1:
-            badge = '0';
+            printf("0");
             break;
         default:
             break;
     }
-    printf("%c-%c", suit, badge);
+    //printf("%c-%c", suit, badge);
 }
 
 void print_player_deck(Player *player) {
@@ -322,7 +323,6 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 
 int main() {
     time_t t = time(NULL);
-    t = 1719388440;
     srand(t);
     printf("Seed %d\n", t);
 
