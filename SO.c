@@ -98,8 +98,8 @@ void have_same_cards(Card deck[], int card_amount, Card *copies, int *copy_amoun
 }
 
 void sort_by_suit(Card deck[], int card_amount) {
-    for(int i=0; i<card_amount; i++) {
-        for(int j=0; j<i; j++) {
+    for(int i=0; i<card_amount - 1; i++) {
+        for(int j=0; j<card_amount - i - 1; j++) {
             if(deck[j].suit > deck[j+1].suit) swap(&deck[j], &deck[j+1]);
         }
     }
@@ -195,7 +195,6 @@ void *play_game(void *arg) {
     pthread_mutex_unlock(&lock);
     return NULL;
 }
-
 
 void swap(Card *c1, Card *c2) {
     Card tmp = *c1;
@@ -322,7 +321,11 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 }
 
 int main() {
-    srand(0);
+    time_t t = time(NULL);
+    t = 1719388440;
+    srand(t);
+    printf("Seed %d\n", t);
+
     int num_players;
     printf("Enter the number of players: ");
     scanf("%d", &num_players);
@@ -356,9 +359,6 @@ int main() {
     while (1) {
         for (int i = 0; i < num_players; i++) {
             int current_player = (start_player + i) % num_players;
-            
-            //play_game(&players[current_player]);
-
             pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
         }
 
@@ -368,7 +368,6 @@ int main() {
             pthread_join(threads[current_player], NULL);
         }
         
-
         // Check if the game is done
         pthread_mutex_lock(&lock);
         if (is_game_done) {
@@ -385,4 +384,3 @@ int main() {
 
     return 0;
 }
-
