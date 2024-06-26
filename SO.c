@@ -29,7 +29,7 @@ void players_init(Player*, Card*, int*);
 void print_deck(Card *deck, int);
 void print_card(Card*);
 void swap(Card*, Card*);
-void print_player_deck(Player* player);
+void print_player_deck(Player*);
 int find_card(Card*, Card*, int);
 void sort_by_suit(Card[], int);
 int is_last_card_spade();
@@ -111,7 +111,6 @@ int is_last_card_spade() {
     }
 }
 
-
 int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy top -> bottom
     sort_by_suit(player->cards, TOTAL_CARDS);
     int index;
@@ -159,23 +158,11 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
         add_to_pile(player, index);
         printf(" Left: %d \n", player->cards_out);
         print_player_deck(player);
-        printf("\n");
+      //  printf("\n");
         return 1;
     }
 
-
-
-     // LAST PLAYED (SPADE)
-    if (is_last_card_spade()) {
-        printf("Last card played is SPADE (Pik)!\n");
-          actual_player = player->player_id - 1; // Poprzedni gracz
-        if (actual_player == 0) {
-            actual_player = num_players;
-
-        }
-
-        return 0;
-    }
+    return 0;  // Return 0 if no card was played
 }
 
 void *play_game(void *arg) {
@@ -205,6 +192,17 @@ void *play_game(void *arg) {
         sort_by_suit(player->cards, TOTAL_CARDS);
         print_player_deck(player);
         printf("\n");
+    }
+
+    // Check if the last card played is a spade
+    if (is_last_card_spade()) {
+        printf("Last card played is SPADE (Pik)!\n");
+        actual_player = (actual_player - 1) ;
+        if(actual_player==0)
+        {
+            actual_player=num_players;
+        }
+        printf("Next player: %d\n", actual_player);
     }
 
     pthread_mutex_unlock(&lock);
@@ -371,8 +369,12 @@ int main() {
     }
 
     while (1) {
+
+
         for (int i = 0; i < num_players; i++) {
+
             int current_player = (start_player + i) % num_players;
+            printf("we mi printuj caly czas numer actual gracza, %d a potem current_player %d \n",actual_player, current_player );
             pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
         }
 
@@ -387,6 +389,7 @@ int main() {
             pthread_mutex_unlock(&lock);
             break;
         }
+
         pthread_mutex_unlock(&lock);
 
         round++;
