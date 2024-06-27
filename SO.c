@@ -342,12 +342,25 @@ int main() {
     time_t t = time(NULL);
     srand(t);
     printf("Seed %ld\n", (long int)t);
+
     int num_players;
-    printf("Enter the number of players: ");
+    printf("Enter the number of players (1-4): ");
     scanf("%d", &num_players);
 
     if (num_players <= 0 || num_players > 4) {
         printf("Number of players must be between 1 and 4.\n");
+        return 1;
+    }
+
+    int game_mode;
+    printf("Choose game mode:\n");
+    printf("1. Human vs. Bots\n");
+    printf("2. Bots vs. Bots\n");
+    printf("Enter your choice (1-2): ");
+    scanf("%d", &game_mode);
+
+    if (game_mode != 1 && game_mode != 2) {
+        printf("Invalid choice. Exiting.\n");
         return 1;
     }
 
@@ -357,14 +370,16 @@ int main() {
     print_deck(deck, TOTAL_CARDS);
 
     pthread_t threads[num_players];
-    Player players[num_players];
-    players_init(players, deck, &num_players);
+    Player players[num_players - (game_mode == 1 ? 1 : 0)]; // Adjust number of players based on game mode
+    int num_actual_players = num_players - (game_mode == 1 ? 1 : 0); // Store the actual number of players
+
+    players_init(players, deck, &num_actual_players);
 
     pthread_mutex_init(&lock, NULL);
 
     int round = 0;
     Card to_find = START_CARD;
-    int start_player = find_first_player(players, &to_find, &num_players);
+    int start_player = find_first_player(players, &to_find, &num_actual_players);
     actual_player = start_player;
 
     if (start_player == -1) {
@@ -373,13 +388,13 @@ int main() {
     }
 
     while (1) {
-        for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
+        for (int i = 0; i < num_actual_players; i++) {
+            int current_player = (start_player + i) % num_actual_players;
             pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
         }
 
-        for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
+        for (int i = 0; i < num_actual_players; i++) {
+            int current_player = (start_player + i) % num_actual_players;
             pthread_join(threads[current_player], NULL);
         }
 
@@ -394,11 +409,11 @@ int main() {
         round++;
     }
 
-     printf("Player %d wins after %d rounds!\n", winner, round);
+    printf("Rounds Played:%d \n", round);
 
     // Determining places based on the number of players
-    int places[num_players];
-    for (int i = 0; i < num_players; i++) {
+    int places[num_actual_players];
+    for (int i = 0; i < num_actual_players; i++) {
         places[i] = 0;
     }
 
@@ -407,20 +422,20 @@ int main() {
 
     // Determine positions for the rest of the players
     int position = 2;
-    for (int i = 0; i < num_players; i++) {
+    for (int i = 0; i < num_actual_players; i++) {
         if (i != (winner - 1)) { // Skip the winner
             places[i] = position++;
         }
     }
 
     // Print results based on the number of players
-    switch (num_players) {
+    switch (num_actual_players) {
         case 2:
             printf("Player %d is the winner!\n", winner);
             printf("Total cards played: %d\n", cards_played_global);
             break;
         case 3:
-            for (int i = 0; i < num_players; i++) {
+            for (int i = 0; i < num_actual_players; i++) {
                 if (places[i] == 1) {
                     printf("Player %d is the winner!\n", i + 1);
                 } else {
@@ -430,7 +445,7 @@ int main() {
             printf("Total cards played: %d\n", cards_played_global);
             break;
         case 4:
-            for (int i = 0; i < num_players; i++) {
+            for (int i = 0; i < num_actual_players; i++) {
                 if (places[i] == 1) {
                     printf("Player %d is the winner!\n", i + 1);
                 } else if (places[i] == 2) {
