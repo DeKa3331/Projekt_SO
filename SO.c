@@ -27,6 +27,7 @@ typedef struct {
     int cards_out;
     Card cards[TOTAL_CARDS];
     int next_player_id;
+    int prev_player_id;
     int rounds_played;
     int cards_played;
     int cards_drawed;
@@ -150,6 +151,27 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
         return 1;
     }
 
+    // Random chance to play random card (if not then continue to smallest)
+    const int RANDOM_TRIES = 10;
+    for(int i=0; i<RANDOM_TRIES; i++) {
+        if(rand() % 10 != 0) break;
+        index = rand() % TOTAL_CARDS;
+        if(player->cards[index].suit == -1 && player->cards[index].badge == -1) {
+            i--;
+            continue;
+        }
+        if(cards_played > 1 && !is_game_done && player->cards[index].suit >= card_pile[cards_played-1].suit) {
+            printf("Random card!\n");
+            printf("Player %d plays: ", player->player_id);
+            print_card(&player->cards[index]);
+            add_to_pile(player, index);
+            printf(" Left: %d \n", player->cards_out);
+            print_player_deck(player);
+            printf("\n");
+            return 1;
+        }
+    }
+
     // Looking for smallest card to play
     index = find_smallest_card(player);
     if(cards_played > 0 && index != -1 && is_game_done != 1) {
@@ -181,8 +203,7 @@ void *play_game(void *arg) {
 
         // Logic if played card is SPADE (pik)
         if(is_card_played && card_pile[cards_played - 1].badge == SPADE) {
-            if(actual_player == 1) actual_player = 4;
-            else actual_player--;
+            actual_player = player->prev_player_id;
         } else {
             actual_player = player->next_player_id;
         }
@@ -239,8 +260,13 @@ void fill_deck(Card *deck) {
 void players_init(Player *players, Card *deck, int *num_players) {
     for (int i = 0; i < *num_players; i++) {
         players[i].player_id = i + 1;
+
         if(i == *num_players - 1) players[i].next_player_id = 1;
         else players[i].next_player_id = i + 2;
+
+        if(i == 0) players[i].prev_player_id = *num_players;
+        else players[i].prev_player_id = i;
+
         players[i].cards_out = TOTAL_CARDS / *num_players;
         players[i].rounds_played = 0;
         players[i].cards_drawed = 0;
@@ -361,10 +387,10 @@ int main() {
     printf("Seed %ld\n", (long int)t);
 
     int num_players;
-    printf("Enter the number of players (1-4): ");
+    printf("Enter the number of players (2-4): ");
     scanf("%d", &num_players);
 
-    if (num_players <= 2 || num_players > 4) {
+    if (num_players < 2 || num_players > 4) {
         printf("Number of players must be between 2 and 4.\n");
         return 1;
     }
