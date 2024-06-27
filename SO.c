@@ -42,6 +42,7 @@ void sort_by_suit(Card[], int);
 
 pthread_mutex_t lock;
 
+int cards_played_global = 0;
 int is_game_done = 0;
 int winner = -1;
 int actual_player = 0;
@@ -53,6 +54,7 @@ void add_to_pile(Player *player, int index) {
     player->cards[index].suit = -1;
     player->cards[index].badge = -1;
     player->cards_out--;
+    cards_played_global++;
 }
 
 void remove_from_pile(Player *player, int amount) {
@@ -415,6 +417,7 @@ int main() {
     switch (num_players) {
         case 2:
             printf("Player %d is the winner!\n", winner);
+            printf("Total cards played: %d\n", cards_played_global);
             break;
         case 3:
             for (int i = 0; i < num_players; i++) {
@@ -424,6 +427,7 @@ int main() {
                     printf("Player %d is in %d place.\n", i + 1, places[i]);
                 }
             }
+            printf("Total cards played: %d\n", cards_played_global);
             break;
         case 4:
             for (int i = 0; i < num_players; i++) {
@@ -437,6 +441,7 @@ int main() {
                     printf("Player %d is in 4th place.\n", i + 1);
                 }
             }
+            printf("Total cards played: %d\n", cards_played_global);
             break;
         default:
             break;
