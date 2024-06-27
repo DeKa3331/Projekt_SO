@@ -167,34 +167,48 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
-    int is_card_played = 0;
+    
+    while(1) {
+        int is_card_played = 0;
 
-    while(player->player_id != actual_player);
-    pthread_mutex_lock(&lock);
-    actual_player = player->next_player_id;
+        while(player->player_id != actual_player);
+        pthread_mutex_lock(&lock);
 
-    is_card_played = card_playing_logic(player);
+        is_card_played = card_playing_logic(player);
 
-    // Check if the player has finished their cards
-    if(player->cards_out == 0) {
-        is_game_done = 1;
-        winner = player->player_id;
-        pthread_mutex_unlock(&lock);
-        return NULL;
-    }
+        // Logic if played card is SPADE (pik)
+        if(is_card_played && card_pile[cards_played - 1].badge == SPADE) {
+            if(actual_player == 1) actual_player = 4;
+            else actual_player--;
+        } else {
+            actual_player = player->next_player_id;
+        }
 
-    if (!is_card_played && is_game_done != 1) {
+        // Check if the player has finished their cards
+        if(player->cards_out == 0) {
+            is_game_done = 1;
+            winner = player->player_id;
+            pthread_mutex_unlock(&lock);
+            return NULL;
+        }
+
+        if(is_game_done) {
+            pthread_mutex_unlock(&lock);
+            return NULL;
+        }
+
         // Logic for handling when no card is played
+        if (!is_card_played && is_game_done != 1) {
+            printf("Player %d cannot play any card. Drawing %d\n", player->player_id, cards_played <= 3 ? cards_played - 1 : 3);
+            remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
+            printf("Cards left: %d\n", player->cards_out);
+            sort_by_suit(player->cards, TOTAL_CARDS);
+            print_player_deck(player);
+            printf("\n");
+        }
 
-        printf("Player %d cannot play any card. Drawing %d\n", player->player_id, cards_played <= 3 ? cards_played - 1 : 3);
-        remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
-        printf("Cards left: %d\n", player->cards_out);
-        sort_by_suit(player->cards, TOTAL_CARDS);
-        print_player_deck(player);
-        printf("\n");
+        pthread_mutex_unlock(&lock);
     }
-
-    pthread_mutex_unlock(&lock);
     return NULL;
 }
 
@@ -388,28 +402,18 @@ int main() {
         return 1;
     }
 
-    while (1) {
-        for (int i = 0; i < num_actual_players; i++) {
-            int current_player = (start_player + i) % num_actual_players;
-            pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
-        }
-
-        for (int i = 0; i < num_actual_players; i++) {
-            int current_player = (start_player + i) % num_actual_players;
-            pthread_join(threads[current_player], NULL);
-        }
-
-        // Check if the game is done
-        pthread_mutex_lock(&lock);
-        if (is_game_done) {
-            pthread_mutex_unlock(&lock);
-            break;
-        }
-        pthread_mutex_unlock(&lock);
-
-        round++;
+    // Thread initialization
+    for(int i=0; i<num_actual_players; i++) {
+        int current_player = (start_player + i) % num_actual_players;
+        pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
+    }
+    
+    for(int i=0; i<num_actual_players; i++) {
+        int current_player = (start_player + 1) % num_actual_players;
+        pthread_join(threads[current_player], NULL);
     }
 
+    // Informations
     printf("Rounds Played: %d \n", round);
     printf("Total cards played: %d\n", cards_played_global);
     printf("Total cards drawed: %d\n\n", cards_drawed_global);
