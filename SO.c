@@ -43,6 +43,7 @@ void sort_by_suit(Card[], int);
 pthread_mutex_t lock;
 
 int cards_played_global = 0;
+int cards_drawed_global = 0;
 int is_game_done = 0;
 int winner = -1;
 int actual_player = 0;
@@ -63,6 +64,7 @@ void remove_from_pile(Player *player, int amount) {
             if(!(player->cards[j].badge == -1 && player->cards[j].suit == -1)) continue;
             player->cards[j] = card_pile[cards_played-- - 1];
             player->cards_out++;
+            cards_drawed_global++;
             break;
         }
     }
@@ -408,7 +410,9 @@ int main() {
         round++;
     }
 
-    printf("Rounds Played:%d \n", round);
+    printf("Rounds Played: %d \n", round);
+    printf("Total cards played: %d\n", cards_played_global);
+    printf("Total cards drawed: %d\n\n", cards_drawed_global);
 
     // Determining places based on the number of players
     int places[num_actual_players];
