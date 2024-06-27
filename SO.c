@@ -347,8 +347,8 @@ int main() {
     printf("Enter the number of players (1-4): ");
     scanf("%d", &num_players);
 
-    if (num_players <= 0 || num_players > 4) {
-        printf("Number of players must be between 1 and 4.\n");
+    if (num_players <= 2 || num_players > 4) {
+        printf("Number of players must be between 2 and 4.\n");
         return 1;
     }
 
