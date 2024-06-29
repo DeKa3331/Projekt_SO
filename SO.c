@@ -6,6 +6,9 @@
 #define TOTAL_CARDS 24
 #define START_CARD {NINE, HEART}
 
+#define PURPLE "\x1B[35m"
+#define ORANGE "\x1B[38;5;208m"
+#define LIGHT_BLUE "\x1B[96m"
 #define RED "\x1B[31m"
 #define GREEN "\x1B[32m"
 #define YELLOW "\x1B[33m"
@@ -13,6 +16,9 @@
 #define MAGENTA "\x1B[35m"
 #define CYAN "\x1B[36m"
 #define RESET "\x1B[0m"
+#define GOLD "\x1B[38;5;220m"
+#define SILVER "\x1B[38;5;250m"
+#define BRONZE "\x1B[38;5;136m"
 
 enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
 enum suit {NINE = 9, TEN = 10, JACK = 11, QUEEN = 12, KING = 13, ACE = 14};
@@ -241,7 +247,7 @@ if (player->cards_out <= 0) {
     active_players--;
     printf("Player %d is out of cards.\n", player->player_id);
     player->player_rank = num_players - taken_places; // Assign rank based on order of finishing
-    taken_places++;
+    taken_places--;
 }
                     //skipping inactive
             while (players[actual_player - 1].active == 0) {
@@ -407,47 +413,28 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
     return -1;
 }
 
-
-//sorting winners
-void sort_players_by_rank(Player players[], int num_players) {
-    // Bubble sort implementation for simplicity
-    for (int i = 0; i > num_players - 1; i++) {
-        for (int j = 0; j > num_players - i - 1; j++) {
-            if (players[j].player_rank > players[j + 1].player_rank) {
-                // Swap players
-                Player temp = players[j];
-                players[j] = players[j + 1];
-                players[j + 1] = temp;
-            }
-        }
-    }
-}
-
-
-
-
 int main() {
     time_t t = time(NULL);
     srand(t);
-    printf("Seed %ld\n", (long int)t);
+    printf(YELLOW "Seed %ld\n", (long int)t );
+    RESET;
 
-    printf("Enter the number of players (2-4): ");
-    num_players = 3;
-    // scanf("%d", &num_players);
+    printf(CYAN"Enter the number of players (2-4): "RESET);
+    scanf("%d", &num_players);
+    taken_places=num_players-1;
     active_players = num_players;
 
     if (num_players < 2 || num_players > 4) {
-        printf("Number of players must be between 2 and 4.\n");
+        printf(RED"Sorry,number of players must be between 2 and 4.\n"RESET);
         return 1;
     }
 
     int game_mode;
-    printf("Choose game mode:\n");
-    printf("1. Human vs. Bots\n");
-    printf("2. Bots vs. Bots\n");
-    printf("Enter your choice (1-2): ");
-    // scanf("%d", &game_mode);
-    game_mode = 2;
+    printf(CYAN"Choose game mode:\n"RESET);
+    printf(BLUE"1. Human vs. Bots\n"RESET);
+    printf(BLUE"2. Bots vs. Bots\n"RESET);
+    printf(BLUE"Enter your choice (1-2): " RESET);
+    scanf("%d", &game_mode);
 
     if (game_mode != 1 && game_mode != 2) {
         printf("Invalid choice. Exiting.\n");
@@ -476,47 +463,97 @@ int main() {
     for (int i = 0; i < num_players; i++) {
         pthread_create(&threads[i], NULL, play_game, &players[i]);
     }
-//thread joining
+    //thread joining
     for (int i = 0; i < num_players; i++) {
         pthread_join(threads[i], NULL);
     }
-    // Informations
-    int total_cards_played = 0;
-    int total_cards_drawed = 0;
-    for (int i = 0; i < num_players; i++) {
-        printf("Player %d played %d times with total of %d cards played and %d cards drawed.\n",
-               players[i].player_id,
-               players[i].rounds_played,
-               players[i].cards_played,
-               players[i].cards_drawed);
-        total_cards_played += players[i].cards_played;
-        total_cards_drawed += players[i].cards_drawed;
-    }
-    printf("Total cards played: %d\n", total_cards_played);
-    printf("Total cards drawed: %d\n\n", total_cards_drawed);
+    //endgame   Informations
+
+    printf(RED "\nGame Over!\n" RESET);
+    printf("Player Rankings:\n");
+      //fix for last player rank
     for (int i = 0; i < num_players; i++) {
             if(players[i].player_rank==0)
             {
-                players[i].player_rank++;
+                players[i].player_rank=num_players;//last rank
             }
     }
-
-
-
-
-    // Print results based on ranks
-    printf("Game Results:\n");
+    //creating array to storage rankings
+    Player ranking[num_players];
     for (int i = 0; i < num_players; i++) {
-        printf("Player%d got rank %d \n", players[i].player_id,players[i].player_rank);
+        ranking[players[i].player_rank - 1] = players[i];
     }
-        // Sorting players by their ranks
-sort_players_by_rank(players, num_players);
 
-        printf("Sorted Game Results:\n");
     for (int i = 0; i < num_players; i++) {
-        printf("Player%d got rank %d \n", players[i].player_id,players[i].player_rank);
+        if (ranking[i].player_rank == 1)
+            printf(GOLD "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
+        else if (ranking[i].player_rank == 2)
+            printf(SILVER "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
+        else if (ranking[i].player_rank == 3)
+            printf(BRONZE "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
+        else
+            printf("%d place: Player %d\n", ranking[i].player_rank, ranking[i].player_id);
     }
-    pthread_mutex_destroy(&lock);
-
+    char choice;
+    int choice2=2;
+    int choice_number;
+    printf(LIGHT_BLUE"Do you want more detailed statistics or maybe play another game?\n");
+    printf("Choose respective options:\n");
+    printf("Y-for more info, N-to end game, A-to roll another game\n\n\n"RESET);
+        scanf(" %c", &choice);
+        switch (choice) {
+        case 'Y':
+        case 'y':
+            int total_cards_played = 0;
+            int total_cards_drawed = 0;
+            printf(LIGHT_BLUE"Do you want statistics from one player or all?\n");
+            printf("Choose respective number for each player, choose 5 for all\n"RESET);
+            scanf("%d", &choice2);
+            switch (choice2) {
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                    choice_number = choice2 - 1; // Indeks gracza w tablicy na podstawie wyboru
+                    printf(YELLOW "Player %d played %d times with total of %d cards played and %d cards drawn.\n",
+                        players[choice_number].player_id,
+                        players[choice_number].rounds_played,
+                        players[choice_number].cards_played,
+                        players[choice_number].cards_drawed);
+                        RESET;
+                    break;
+                case 5:
+                    for (int i = 0; i < num_players; i++) {
+                        printf(YELLOW"Player %d played %d times with total of %d cards played and %d cards drawn.\n",
+                            players[i].player_id,
+                            players[i].rounds_played,
+                            players[i].cards_played,
+                            players[i].cards_drawed);
+                        total_cards_played += players[i].cards_played;
+                        total_cards_drawed += players[i].cards_drawed;
+                        RESET;
+                    }
+                    printf(PURPLE "Total cards played: %d\n", total_cards_played);
+                    printf("Total cards drawn: %d\n\n", total_cards_drawed);
+                    RESET;
+                    break;
+                default:
+                    printf("Invalid choice.\n");
+            }
+        case 'N':
+        case 'n':
+            printf(BLUE "Thanks For Playing!\n" RESET);
+            printf(BLUE "Hope you had funn trying out our minigame.\n" RESET);
+            printf(BLUE "Designed and delevoped by: DeKa and Emzeey\n" RESET);
+            pthread_mutex_destroy(&lock);
+                return 0;
+        case 'A':
+        case 'a':
+            printf("You chose Again.\n");
+            break;
+        default:
+            printf("Invalid choice.\n");
+    }
+pthread_mutex_destroy(&lock);
     return 0;
 }
