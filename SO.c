@@ -32,7 +32,7 @@ typedef struct {
     int cards_played;
     int cards_drawed;
     int active;
-    int player_postion;
+    int player_rank;
 } Player;
 
 void *play_game(void*);
@@ -50,7 +50,6 @@ pthread_mutex_t lock;
 
 Player players[4];
 int is_game_done = 0;
-int winner = -1;
 int actual_player = 0;
 int cards_played = 0;
 int taken_places=0;
@@ -195,30 +194,28 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
-    while(1) {
+    while (1) {
         int is_card_played = 0;
 
-        while(player->player_id != actual_player && !is_game_done); // Stop players when other is playing
-        if(is_game_done) return NULL;
+        while (player->player_id != actual_player && !is_game_done);
 
-        // Check if the player is active and can play a card
-        if(player->active == 1) {
+        if (is_game_done) return NULL;
+
+        if (player->active == 1) {
             is_card_played = card_playing_logic(player);
         }
 
-        pthread_mutex_lock(&lock); // Lock when modifying shared resources
+        pthread_mutex_lock(&lock);
 
-        if(player->active == 1) { // Check if the player should still play the game
+        if (player->active == 1) {
             player->rounds_played++;
 
-            // Logic if played card is SPADE (pik)
-            if(is_card_played && card_pile[cards_played - 1].badge == SPADE) {
+            if (is_card_played && card_pile[cards_played - 1].badge == SPADE) {
                 actual_player = player->prev_player_id;
             } else {
                 actual_player = player->next_player_id;
             }
 
-            // Logic for handling when no card is played
             if (!is_card_played && is_game_done != 1) {
                 printf("Player %d cannot play any card. Drawing %d\n", player->player_id, cards_played <= 3 ? cards_played - 1 : 3);
                 remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
@@ -227,29 +224,28 @@ void *play_game(void *arg) {
                 print_player_deck(player);
                 printf("\n");
             }
-
-            // Logic for inactive player
+        //checking if player is out of cards
             if (player->cards_out <= 0) {
                 player->active = 0;
                 active_players--;
                 printf("Player %d is out of cards.\n", player->player_id);
-                player->player_postion = taken_places;
+                /*if (winner == 0) {
+                    winner = player->player_id; // zrobie tutaj brute force
+                }*/
+                player->player_rank= taken_places;
                 taken_places++;
             }
-
-            // End game if only one player is left
-            if(active_players <= 1) {
-                printf("Game over. Player %d wins!\n", player->player_id);
+        //checking ending game
+            if (active_players <= 1) {
                 is_game_done = 1;
                 pthread_mutex_unlock(&lock);
                 return NULL;
             }
-        }
-
-        // Skip inactive players
+        //skipping inactive
             while (players[actual_player - 1].active == 0) {
                 actual_player = players[actual_player - 1].next_player_id;
             }
+        }
 
         pthread_mutex_unlock(&lock);
     }
@@ -406,16 +402,32 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
     }
     return -1;
 }
+//sorting winners
+void sort_players_by_rank(Player players[], int num_players) {
+    // Bubble sort implementation for simplicity
+    for (int i = 0; i < num_players - 1; i++) {
+        for (int j = 0; j < num_players - i - 1; j++) {
+            if (players[j].player_rank > players[j + 1].player_rank) {
+                // Swap players
+                Player temp = players[j];
+                players[j] = players[j + 1];
+                players[j + 1] = temp;
+            }
+        }
+    }
+}
+
+
+
 
 int main() {
-    // Inicjalizacja generatora losowego
     time_t t = time(NULL);
     srand(t);
     printf("Seed %ld\n", (long int)t);
 
     int num_players;
     printf("Enter the number of players (2-4): ");
-    num_players = 3; // Zamiast skanowania, przypisanie liczby graczy dla testów
+    num_players = 3;
     // scanf("%d", &num_players);
     active_players = num_players;
 
@@ -430,7 +442,7 @@ int main() {
     printf("2. Bots vs. Bots\n");
     printf("Enter your choice (1-2): ");
     // scanf("%d", &game_mode);
-    game_mode = 2; // Zamiast skanowania, przypisanie trybu gry dla testów
+    game_mode = 2;
 
     if (game_mode != 1 && game_mode != 2) {
         printf("Invalid choice. Exiting.\n");
@@ -443,7 +455,6 @@ int main() {
     print_deck(deck, TOTAL_CARDS);
 
     pthread_t threads[num_players];
-    // Inicjalizacja graczy
     players_init(players, deck, &num_players);
 
     pthread_mutex_init(&lock, NULL);
@@ -456,18 +467,15 @@ int main() {
         printf("No player has the starting card.\n");
         return 1;
     }
-
-    // Tworzenie wątków
+    // Thread initialization
     for (int i = 0; i < num_players; i++) {
         pthread_create(&threads[i], NULL, play_game, &players[i]);
     }
-
-    // Dołączanie wątków
+//thread joining
     for (int i = 0; i < num_players; i++) {
         pthread_join(threads[i], NULL);
     }
-
-    // Informacje po zakończeniu gry
+    // Informations
     int total_cards_played = 0;
     int total_cards_drawed = 0;
     for (int i = 0; i < num_players; i++) {
@@ -482,56 +490,8 @@ int main() {
     printf("Total cards played: %d\n", total_cards_played);
     printf("Total cards drawed: %d\n\n", total_cards_drawed);
 
-    // Określanie miejsc na podstawie liczby graczy
-    int places[num_players];
-    for (int i = 0; i < num_players; i++) {
-        places[i] = 0;
-    }
-
-    // Określenie miejsca zwycięzcy
-    places[winner - 1] = 1;
-
-    // Określenie miejsc dla pozostałych graczy
-    int position = 2;
-    for (int i = 0; i < num_players; i++) {
-        if (i != (winner - 1)) { // Pominięcie zwycięzcy
-            places[i] = position++;
-        }
-    }
-
-    // Wyświetlenie wyników na podstawie liczby graczy
-    switch (num_players) {
-        case 2:
-            printf("Player %d is the winner!\n", winner);
-            break;
-        case 3:
-            for (int i = 0; i < num_players; i++) {
-                if (places[i] == 1) {
-                    printf("Player %d is the winner!\n", i + 1);
-                } else {
-                    printf("Player %d is in %d place.\n", i + 1, places[i]);
-                }
-            }
-            break;
-        case 4:
-            for (int i = 0; i < num_players; i++) {
-                if (places[i] == 1) {
-                    printf("Player %d is the winner!\n", i + 1);
-                } else if (places[i] == 2) {
-                    printf("Player %d is in 2nd place.\n", i + 1);
-                } else if (places[i] == 3) {
-                    printf("Player %d is in 3rd place.\n", i + 1);
-                } else {
-                    printf("Player %d is in 4th place.\n", i + 1);
-                }
-            }
-            break;
-        default:
-            break;
-    }
 
     pthread_mutex_destroy(&lock);
 
     return 0;
 }
-
