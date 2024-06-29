@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <time.h>
 
+#define MAXPLAYERS 4
 #define TOTAL_CARDS 24
 #define START_CARD {NINE, HEART}
 
@@ -60,7 +61,7 @@ pthread_mutex_t lock;
 
 
 //global variables
-Player players[4];
+Player players[MAXPLAYERS];
 int game_mode=0;
 int num_players=0;
 int is_game_done = 0;
@@ -453,6 +454,12 @@ void initialize_game() {
     is_game_done = 0;
     actual_player = 0;
 
+    //reseting player_rank for every player
+    for(int i=0;i<MAXPLAYERS;i++)
+    {
+        players[i].player_rank=0;
+    }
+
     // Clear card pile
     for (int i = 0; i < TOTAL_CARDS; i++) {
         card_pile[i].suit = -1;
@@ -474,7 +481,7 @@ void create_new_game() {
     taken_places = num_players - 1;
     active_players = num_players;
 
-    if (num_players < 2 || num_players > 4) {
+    if (num_players < 2 || num_players > MAXPLAYERS) {
         printf(RED"Sorry, number of players must be between 2 and 4.\n"RESET);
         return;
     }
