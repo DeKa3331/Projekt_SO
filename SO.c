@@ -543,6 +543,22 @@ int main() {
     char choice;
     int choice2=2;
     int choice_number;
+    printf(CYAN "\t\t\tWelcome to our game!!!\n" RESET);
+    printf(CYAN "\t\t\tHere are some rules: \n" RESET);
+    printf(LIGHT_BLUE "Game is called 'Pan', it's not our original idea we just develop program that works similar way \n" RESET);
+    printf(LIGHT_BLUE "At the beggining every card from 9-Ace are tossed beetwen players \n" RESET);
+    printf(LIGHT_BLUE "Player with 9 Heart start the game and then we follow numeric orders (1-4) \n" RESET);
+    printf(LIGHT_BLUE "You are allowed to throw only the same value or higher card\n" RESET);
+    printf(LIGHT_BLUE "For example on 9 you can throw anything you want \n" RESET);
+    printf(LIGHT_BLUE "But if Queen is on top of pile you can only play other queens/kings/aces badge doesn't matter at this stage. \n" RESET);
+    printf(LIGHT_BLUE "You are allowed to play 3 cards of the same value (three kings) if atleast one of them is Diamond!  \n" RESET);
+    printf(LIGHT_BLUE "Spade is very tricky! after you used any spade card next player to play after you is going to be previous player \n" RESET);
+    printf(LIGHT_BLUE "Example: let's say you are number 2, so if you throw 9 spade to pile, then next player is going to be 1 instead of 3 \n" RESET);
+    printf(LIGHT_BLUE "But there is one more rule to that, if you play 1vs1 (could be endgame!) and you use spade then enemy turn is skipped!\n" RESET);
+    printf(LIGHT_BLUE "That should be it, good luck and make sure you have fun and don't loose friend! \n" RESET);
+
+
+
 
     create_new_game();
     print_endgame();
