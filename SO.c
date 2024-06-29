@@ -6,8 +6,21 @@
 #define TOTAL_CARDS 24
 #define START_CARD {NINE, HEART}
 
-enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
+#define PURPLE "\x1B[35m"
+#define ORANGE "\x1B[38;5;208m"
+#define LIGHT_BLUE "\x1B[96m"
+#define RED "\x1B[31m"
+#define GREEN "\x1B[32m"
+#define YELLOW "\x1B[33m"
+#define BLUE "\x1B[34m"
+#define MAGENTA "\x1B[35m"
+#define CYAN "\x1B[36m"
+#define RESET "\x1B[0m"
+#define GOLD "\x1B[38;5;220m"
+#define SILVER "\x1B[38;5;250m"
+#define BRONZE "\x1B[38;5;136m"
 
+enum badge {HEART, SPADE, DIAMOND, CLUB}; // Kier, Pik, Karo, Trefl
 enum suit {NINE = 9, TEN = 10, JACK = 11, QUEEN = 12, KING = 13, ACE = 14};
 
 typedef struct {
@@ -20,6 +33,12 @@ typedef struct {
     int cards_out;
     Card cards[TOTAL_CARDS];
     int next_player_id;
+    int prev_player_id;
+    int rounds_played;
+    int cards_played;
+    int cards_drawed;
+    int active;
+    int player_rank;
 } Player;
 
 void *play_game(void*);
@@ -35,11 +54,14 @@ void sort_by_suit(Card[], int);
 
 pthread_mutex_t lock;
 
-int is_game_done = 0;
-int winner = -1;
-int actual_player = 0;
+Player players[4];
 
+int num_players=0;
+int is_game_done = 0;
+int actual_player = 0;
 int cards_played = 0;
+int taken_places=0;
+int active_players=0;
 Card card_pile[TOTAL_CARDS];
 
 void add_to_pile(Player *player, int index) {
@@ -47,6 +69,7 @@ void add_to_pile(Player *player, int index) {
     player->cards[index].suit = -1;
     player->cards[index].badge = -1;
     player->cards_out--;
+    player->cards_played++;
 }
 
 void remove_from_pile(Player *player, int amount) {
@@ -55,6 +78,7 @@ void remove_from_pile(Player *player, int amount) {
             if(!(player->cards[j].badge == -1 && player->cards[j].suit == -1)) continue;
             player->cards[j] = card_pile[cards_played-- - 1];
             player->cards_out++;
+            player->cards_drawed++;
             break;
         }
     }
@@ -139,6 +163,27 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
         return 1;
     }
 
+    // Random chance to play random card (if not then continue to smallest)
+    const int RANDOM_TRIES = 10;
+    for(int i=0; i<RANDOM_TRIES; i++) {
+        if(rand() % 10 != 0) break;
+        index = rand() % TOTAL_CARDS;
+        if(player->cards[index].suit == -1 && player->cards[index].badge == -1) {
+            i--;
+            continue;
+        }
+        if(cards_played > 1 && !is_game_done && player->cards[index].suit >= card_pile[cards_played-1].suit) {
+            printf("Random card!\n");
+            printf("Player %d plays: ", player->player_id);
+            print_card(&player->cards[index]);
+            add_to_pile(player, index);
+            printf(" Left: %d \n", player->cards_out);
+            print_player_deck(player);
+            printf("\n");
+            return 1;
+        }
+    }
+
     // Looking for smallest card to play
     index = find_smallest_card(player);
     if(cards_played > 0 && index != -1 && is_game_done != 1) {
@@ -157,36 +202,66 @@ int card_playing_logic(Player *player) {  // Choosing what to play in hierarchy 
 
 void *play_game(void *arg) {
     Player *player = (Player *)arg;
-    int is_card_played = 0;
+    while (1) {
+        int is_card_played = 0;
 
-    while(player->player_id != actual_player);
-    pthread_mutex_lock(&lock);
-    actual_player = player->next_player_id;
+        while (player->player_id != actual_player && !is_game_done);
 
-    is_card_played = card_playing_logic(player);
+        if (is_game_done) return NULL;
 
-    // Check if the player has finished their cards
-    if(player->cards_out == 0) {
-        is_game_done = 1;
-        winner = player->player_id;
-        pthread_mutex_unlock(&lock);
-        return NULL;
-    }
+        if (player->active == 1) {
+            is_card_played = card_playing_logic(player);
+        }
 
-    if (!is_card_played && is_game_done != 1) {
-        // Logic for handling when no card is played
+        pthread_mutex_lock(&lock);
 
-        remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
-        printf("Player %d cannot play any card. Drawing %d\n", player->player_id, cards_played <= 3 ? cards_played - 1 : 3);
-        printf("Cards left: %d\n", player->cards_out);
-        sort_by_suit(player->cards, TOTAL_CARDS);
-        print_player_deck(player);
-        printf("\n");
-    }
+        if (player->active == 1) {
+            player->rounds_played++;
 
-    pthread_mutex_unlock(&lock);
-    return NULL;
+            if (is_card_played && card_pile[cards_played - 1].badge == SPADE) {
+                actual_player = player->prev_player_id;
+            } else {
+                actual_player = player->next_player_id;
+            }
+
+            if (!is_card_played && is_game_done != 1) {
+                printf("Player %d cannot play any card. Drawing %d\n", player->player_id, cards_played <= 3 ? cards_played - 1 : 3);
+                remove_from_pile(player, cards_played <= 3 ? cards_played - 1 : 3);
+                printf("Cards left: %d\n", player->cards_out);
+                sort_by_suit(player->cards, TOTAL_CARDS);
+                print_player_deck(player);
+                printf("\n");
+            }
+
+                    //checking ending game
+            if (active_players <= 1) {
+                is_game_done = 1;
+                pthread_mutex_unlock(&lock);
+                return NULL;
+            }
+
+
+        //checking if player is out of cards and setting up places
+if (player->cards_out <= 0) {
+    player->active = 0;
+    active_players--;
+    printf("Player %d is out of cards.\n", player->player_id);
+    player->player_rank = num_players - taken_places; // Assign rank based on order of finishing
+    taken_places--;
 }
+                    //skipping inactive
+            while (players[actual_player - 1].active == 0) {
+                actual_player = players[actual_player - 1].next_player_id;
+            }
+
+
+        }
+
+        pthread_mutex_unlock(&lock);
+    }
+}
+
+
 
 void swap(Card *c1, Card *c2) {
     Card tmp = *c1;
@@ -216,9 +291,18 @@ void fill_deck(Card *deck) {
 void players_init(Player *players, Card *deck, int *num_players) {
     for (int i = 0; i < *num_players; i++) {
         players[i].player_id = i + 1;
+
         if(i == *num_players - 1) players[i].next_player_id = 1;
         else players[i].next_player_id = i + 2;
+
+        if(i == 0) players[i].prev_player_id = *num_players;
+        else players[i].prev_player_id = i;
+
         players[i].cards_out = TOTAL_CARDS / *num_players;
+        players[i].rounds_played = 0;
+        players[i].cards_drawed = 0;
+        players[i].cards_played = 0;
+        players[i].active = 1;
         for (int j = 0; j < TOTAL_CARDS / *num_players; j++) {
             players[i].cards[j] = deck[i * TOTAL_CARDS / *num_players + j];
         }
@@ -226,11 +310,11 @@ void players_init(Player *players, Card *deck, int *num_players) {
             players[i].cards[j].badge = -1;
             players[i].cards[j].suit = -1;
         }
+           }
     }
-}
 
 void print_deck(Card *deck, int size) {
-    for(int i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         print_card(&deck[i]);
         printf(" ");
     }
@@ -239,6 +323,24 @@ void print_deck(Card *deck, int size) {
 
 void print_card(Card *card) {
     char suit;
+    char *color;
+    switch (card->badge) {
+        case HEART:
+            color = RED;
+            break;
+        case DIAMOND:
+            color = MAGENTA;
+            break;
+        case SPADE:
+            color = BLUE;
+            break;
+        case CLUB:
+            color = GREEN;
+            break;
+        default:
+            color = RESET;
+            break;
+    }
     switch (card->suit) {
         case NINE:
             suit = '9';
@@ -258,39 +360,37 @@ void print_card(Card *card) {
         case ACE:
             suit = 'A';
             break;
-        case -1:
-            suit = '0';
-            break;
         default:
+            suit = '?';
             break;
     }
-    printf("%c", suit);
+    printf("%s[ %c", color, suit);
+
 
     switch (card->badge) {
         case DIAMOND:
-            printf("\u2666");
+            printf("\u2666 ");
             break;
         case HEART:
-            printf("\u2665");
+            printf("\u2665 ");
             break;
         case SPADE:
-            printf("\u2660");
+            printf("\u2660 ");
             break;
         case CLUB:
-            printf("\u2663");
-            break;
-        case -1:
-            printf("0");
+            printf("\u2663 ");
             break;
         default:
+            printf(" ? ");
             break;
     }
-    //printf("%c-%c", suit, badge);
+    printf("]%s", RESET);
 }
 
 void print_player_deck(Player *player) {
-    for(int i = 0; i < TOTAL_CARDS; i++) {
-        if(player->cards[i].suit != -1 && player->cards[i].badge != -1) {
+    printf("Player %d's cards: ", player->player_id);
+    for (int i = 0; i < TOTAL_CARDS; i++) {
+        if (player->cards[i].suit != -1 && player->cards[i].badge != -1) {
             print_card(&player->cards[i]);
             printf(" ");
         }
@@ -299,7 +399,7 @@ void print_player_deck(Player *player) {
 }
 
 int find_first_player(Player *players, Card *card_to_find, int *num_players) {
-    for(int i = 0; i < *num_players; i++) {
+    for (int i = 0; i < *num_players; i++) {
         int index = find_card(card_to_find, players[i].cards, TOTAL_CARDS);
         if (index != -1) return players[i].player_id;
     }
@@ -307,8 +407,8 @@ int find_first_player(Player *players, Card *card_to_find, int *num_players) {
 }
 
 int find_card(Card *card_to_find, Card *card_deck, int size) {
-    for(int i = 0; i < size; i++) {
-        if(card_deck[i].badge == card_to_find->badge && card_deck[i].suit == card_to_find->suit) return i;
+    for (int i = 0; i < size; i++) {
+        if (card_deck[i].badge == card_to_find->badge && card_deck[i].suit == card_to_find->suit) return i;
     }
     return -1;
 }
@@ -316,14 +416,27 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
 int main() {
     time_t t = time(NULL);
     srand(t);
-    printf("Seed %ld\n", (long int)t);  // Corrected format specifier and cast
-
-    int num_players;
-    printf("Enter the number of players: ");
+    printf(YELLOW "Seed %ld\n", (long int)t );
+    RESET;
+    printf(CYAN"Enter the number of players (2-4): "RESET);
     scanf("%d", &num_players);
+    taken_places=num_players-1;
+    active_players = num_players;
 
-    if (num_players <= 0 || num_players > 4) {
-        printf("Number of players must be between 1 and 4.\n");
+    if (num_players < 2 || num_players > 4) {
+        printf(RED"Sorry,number of players must be between 2 and 4.\n"RESET);
+        return 1;
+    }
+
+    int game_mode;
+    printf(CYAN"Choose game mode:\n"RESET);
+    printf(BLUE"1. Human vs. Bots\n"RESET);
+    printf(BLUE"2. Bots vs. Bots\n"RESET);
+    printf(BLUE"Enter your choice (1-2): " RESET);
+    scanf("%d", &game_mode);
+
+    if (game_mode != 1 && game_mode != 2) {
+        printf("Invalid choice. Exiting.\n");
         return 1;
     }
 
@@ -333,12 +446,10 @@ int main() {
     print_deck(deck, TOTAL_CARDS);
 
     pthread_t threads[num_players];
-    Player players[num_players];
     players_init(players, deck, &num_players);
 
     pthread_mutex_init(&lock, NULL);
 
-    int round = 0;
     Card to_find = START_CARD;
     int start_player = find_first_player(players, &to_find, &num_players);
     actual_player = start_player;
@@ -347,31 +458,101 @@ int main() {
         printf("No player has the starting card.\n");
         return 1;
     }
-
-    while (1) {
-        for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
-            pthread_create(&threads[current_player], NULL, play_game, &players[current_player]);
-        }
-
-        for (int i = 0; i < num_players; i++) {
-            int current_player = (start_player + i) % num_players;
-            pthread_join(threads[current_player], NULL);
-        }
-
-        // Check if the game is done
-        pthread_mutex_lock(&lock);
-        if (is_game_done) {
-            pthread_mutex_unlock(&lock);
-            break;
-        }
-        pthread_mutex_unlock(&lock);
-
-        round++;
+    // Thread initialization
+    for (int i = 0; i < num_players; i++) {
+        pthread_create(&threads[i], NULL, play_game, &players[i]);
     }
+    //thread joining
+    for (int i = 0; i < num_players; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    //endgame   Informations
 
-    printf("Player %d wins after %d rounds!\n", winner, round);
-    pthread_mutex_destroy(&lock);
+    printf(RED "\nGame Over!\n" RESET);
+    printf("Player Rankings:\n");
+      //fix for last player rank
+    for (int i = 0; i < num_players; i++) {
+            if(players[i].player_rank==0)
+            {
+                players[i].player_rank=num_players;//last rank
+            }
+    }
+    //creating array to storage rankings
+    Player ranking[num_players];
+    for (int i = 0; i < num_players; i++) {
+        ranking[players[i].player_rank - 1] = players[i];
+    }
+    for (int i = 0; i < num_players; i++) {
+        if (ranking[i].player_rank == 1)
+            printf(GOLD "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
+        else if (ranking[i].player_rank == 2)
+            printf(SILVER "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
+        else if (ranking[i].player_rank == 3)
+            printf(BRONZE "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
+        else
+            printf("%d place: Player %d\n", ranking[i].player_rank, ranking[i].player_id);
+    }
+    char choice;
+    int choice2=2;
+    int choice_number;
+    printf(LIGHT_BLUE"Do you want more detailed statistics or maybe play another game?\n");
+    printf("Choose respective options:\n");
+    printf("Y-for more info, N-to end game, A-to roll another game\n\n\n"RESET);
+        scanf(" %c", &choice);
+        switch (choice) {
+        case 'Y':
+        case 'y':
+            int total_cards_played = 0;
+            int total_cards_drawed = 0;
+            printf(LIGHT_BLUE"Do you want statistics from one player or all?\n");
+            printf("Choose respective number for each player, choose 5 for all\n"RESET);
+            scanf("%d", &choice2);
+            switch (choice2) {
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                    choice_number = choice2 - 1; // Indeks gracza w tablicy na podstawie wyboru
+                    printf(YELLOW "Player %d played %d times with total of %d cards played and %d cards drawn.\n",
+                        players[choice_number].player_id,
+                        players[choice_number].rounds_played,
+                        players[choice_number].cards_played,
+                        players[choice_number].cards_drawed);
+                        RESET;
+                    break;
+                case 5:
+                    for (int i = 0; i < num_players; i++) {
+                        printf(YELLOW"Player %d played %d times with total of %d cards played and %d cards drawn.\n",
+                            players[i].player_id,
+                            players[i].rounds_played,
+                            players[i].cards_played,
+                            players[i].cards_drawed);
+                        total_cards_played += players[i].cards_played;
+                        total_cards_drawed += players[i].cards_drawed;
+                        RESET;
+                    }
+                    printf(PURPLE "Total cards played: %d\n", total_cards_played);
+                    printf("Total cards drawn: %d\n\n", total_cards_drawed);
+                    RESET;
+                    break;
+                default:
+                    printf("Invalid choice.\n");
+            }
+        case 'N':
+        case 'n':
+            printf(BLUE "Thanks For Playing!\n" RESET);
+            printf(BLUE "Hope you had funn trying out our minigame.\n" RESET);
+            printf(BLUE "Designed and delevoped by: DeKa and Emzeey\n" RESET);
+            pthread_mutex_destroy(&lock);
+                return 0;
+        case 'A':
+        case 'a':
+            printf("You chose Again.\n");
 
+            break;
+        default:
+            printf("Invalid choice.\n");
+    }
+pthread_mutex_destroy(&lock);
     return 0;
 }
