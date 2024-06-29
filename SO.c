@@ -49,6 +49,8 @@ void sort_by_suit(Card[], int);
 pthread_mutex_t lock;
 
 Player players[4];
+
+int num_players=0;
 int is_game_done = 0;
 int actual_player = 0;
 int cards_played = 0;
@@ -224,27 +226,29 @@ void *play_game(void *arg) {
                 print_player_deck(player);
                 printf("\n");
             }
-        //checking if player is out of cards
-            if (player->cards_out <= 0) {
-                player->active = 0;
-                active_players--;
-                printf("Player %d is out of cards.\n", player->player_id);
-                /*if (winner == 0) {
-                    winner = player->player_id; // zrobie tutaj brute force
-                }*/
-                player->player_rank= taken_places;
-                taken_places++;
-            }
-        //checking ending game
+
+                    //checking ending game
             if (active_players <= 1) {
                 is_game_done = 1;
                 pthread_mutex_unlock(&lock);
                 return NULL;
             }
-        //skipping inactive
+
+
+        //checking if player is out of cards and setting up places
+if (player->cards_out <= 0) {
+    player->active = 0;
+    active_players--;
+    printf("Player %d is out of cards.\n", player->player_id);
+    player->player_rank = num_players - taken_places; // Assign rank based on order of finishing
+    taken_places++;
+}
+                    //skipping inactive
             while (players[actual_player - 1].active == 0) {
                 actual_player = players[actual_player - 1].next_player_id;
             }
+
+
         }
 
         pthread_mutex_unlock(&lock);
@@ -402,11 +406,13 @@ int find_card(Card *card_to_find, Card *card_deck, int size) {
     }
     return -1;
 }
+
+
 //sorting winners
 void sort_players_by_rank(Player players[], int num_players) {
     // Bubble sort implementation for simplicity
-    for (int i = 0; i < num_players - 1; i++) {
-        for (int j = 0; j < num_players - i - 1; j++) {
+    for (int i = 0; i > num_players - 1; i++) {
+        for (int j = 0; j > num_players - i - 1; j++) {
             if (players[j].player_rank > players[j + 1].player_rank) {
                 // Swap players
                 Player temp = players[j];
@@ -425,7 +431,6 @@ int main() {
     srand(t);
     printf("Seed %ld\n", (long int)t);
 
-    int num_players;
     printf("Enter the number of players (2-4): ");
     num_players = 3;
     // scanf("%d", &num_players);
@@ -489,8 +494,28 @@ int main() {
     }
     printf("Total cards played: %d\n", total_cards_played);
     printf("Total cards drawed: %d\n\n", total_cards_drawed);
+    for (int i = 0; i < num_players; i++) {
+            if(players[i].player_rank==0)
+            {
+                players[i].player_rank++;
+            }
+    }
 
 
+
+
+    // Print results based on ranks
+    printf("Game Results:\n");
+    for (int i = 0; i < num_players; i++) {
+        printf("Player%d got rank %d \n", players[i].player_id,players[i].player_rank);
+    }
+        // Sorting players by their ranks
+sort_players_by_rank(players, num_players);
+
+        printf("Sorted Game Results:\n");
+    for (int i = 0; i < num_players; i++) {
+        printf("Player%d got rank %d \n", players[i].player_id,players[i].player_rank);
+    }
     pthread_mutex_destroy(&lock);
 
     return 0;
