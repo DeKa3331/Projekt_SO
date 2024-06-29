@@ -364,8 +364,8 @@ void print_card(Card *card) {
             suit = '?';
             break;
     }
-
     printf("%s[ %c", color, suit);
+
 
     switch (card->badge) {
         case DIAMOND:
@@ -418,7 +418,6 @@ int main() {
     srand(t);
     printf(YELLOW "Seed %ld\n", (long int)t );
     RESET;
-
     printf(CYAN"Enter the number of players (2-4): "RESET);
     scanf("%d", &num_players);
     taken_places=num_players-1;
@@ -483,7 +482,6 @@ int main() {
     for (int i = 0; i < num_players; i++) {
         ranking[players[i].player_rank - 1] = players[i];
     }
-
     for (int i = 0; i < num_players; i++) {
         if (ranking[i].player_rank == 1)
             printf(GOLD "%d place: Player %d\n" RESET, ranking[i].player_rank, ranking[i].player_id);
@@ -550,6 +548,7 @@ int main() {
         case 'A':
         case 'a':
             printf("You chose Again.\n");
+
             break;
         default:
             printf("Invalid choice.\n");
